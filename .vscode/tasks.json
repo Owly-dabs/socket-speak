@@ -1,0 +1,51 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build and Run Server",
+            "type": "shell",
+            "command": "gcc -ansi -pedantic server.c -o ./bin/server && ./bin/server",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Build and Run Client",
+            "type": "shell",
+            "command": "gcc -ansi -pedantic client.c -o ./bin/client && ./bin/client ${input:ipAddress}",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Kill Process on Server Port",
+            "type": "shell",
+            "command": "fuser -k ${input:serverPort}/tcp || echo 'No process found on port ${input:serverPort}'",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "ipAddress",
+            "type": "promptString",
+            "description": "IP address to connect to",
+            "default": "127.0.0.1"
+        },
+        {
+            "id": "serverPort",
+            "type": "promptString",
+            "description": "Server port",
+            "default": "8081"
+        }
+    ]
+}
