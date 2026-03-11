@@ -4,18 +4,19 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
+#include "lmp.h"
+
 #define PORT 8081
 
 int main(int argc, char const *argv[])
 {
-    int sock = 0, valread;
+    int sock = 0;
     struct sockaddr_in serv_addr;
-    char *hello = "Hello from client";
-    char buffer[1024] = {0};
 
     if (argc < 2)
     {
-        fprintf(stderr, "usage: ./client <local ip addr>\n");
+        fprintf(stderr, "usage: ./client <server ip addr>\n");
         exit(EXIT_FAILURE);
     }
 
@@ -28,7 +29,6 @@ int main(int argc, char const *argv[])
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
 
-    /* Convert IPv4 and IPv6 addresses from text to binary form */
     if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0)
     {
         perror("inet_pton");
@@ -40,9 +40,9 @@ int main(int argc, char const *argv[])
         perror("connect");
         return -1;
     }
-    send(sock, hello, strlen(hello), 0);
-    printf("Hello message sent\n");
-    valread = read(sock, buffer, 1024);
-    printf("%s\n", buffer);
+
+    printf("Connected. Type messages or /nick <name> to set nickname. Ctrl+D to quit.\n");
+    chat_loop(sock);
+    close(sock);
     return 0;
 }
