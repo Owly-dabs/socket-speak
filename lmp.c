@@ -7,6 +7,64 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#define MAX_COMMANDS 32
+#define MAX_NAME_LEN 32
+
+typedef struct {
+    uint8_t     code;
+    char        name[MAX_NAME_LEN];
+    SendHandler send;
+    RecvHandler recv;
+} CommandEntry;
+
+static CommandEntry command_table[MAX_COMMANDS];
+static size_t       command_count = 0;
+
+void register_command(uint8_t code, const char *name, SendHandler send, RecvHandler recv) {
+    if (command_count >= MAX_COMMANDS) {
+        fprintf(stderr, "register_command: table full, cannot register '%s'\n", name);
+        return;
+    }
+    command_table[command_count].code = code;
+    command_table[command_count].send = send;
+    command_table[command_count].recv = recv;
+    snprintf(command_table[command_count].name, MAX_NAME_LEN, "%s", name);
+    command_count++;
+}
+
+CommandResult dispatch_send(const char *line, LMPContext *ctx) {
+    char buf[256];
+    size_t i;
+    char *name;
+    char *args;
+    snprintf(buf, sizeof(buf), "%s", line);
+
+    name = strtok(buf, " ");
+    if (!name) return COMMAND_UNRECOGNIZED;
+
+    args = strtok(NULL, "");
+    if (!args) args = "";
+
+    for (i = 0; i < command_count; i++) {
+        if (strcmp(command_table[i].name, name) == 0) {
+            if (!command_table[i].send) return COMMAND_ERROR;
+            return command_table[i].send(command_table[i].code, args, ctx);
+        }
+    }
+    return COMMAND_UNRECOGNIZED;
+}
+
+CommandResult dispatch_recv(uint8_t code, const char *buf, uint32_t len, LMPContext *ctx) {
+    size_t i;
+    for (i = 0; i < command_count; i++) {
+        if (command_table[i].code == code) {
+            if (!command_table[i].recv) return COMMAND_ERROR;
+            return command_table[i].recv(code, buf, len, ctx);
+        }
+    }
+    return COMMAND_UNRECOGNIZED;
+}
+
 static int read_all(int fd, void *buf, size_t n) {
     size_t total = 0;
     char *p = (char *)buf;
@@ -17,6 +75,66 @@ static int read_all(int fd, void *buf, size_t n) {
         total += (size_t)r;
     }
     return 0;
+}
+
+static void print_prompt() {
+    printf("\r\033[K[You]: ");
+    fflush(stdout);
+}
+
+static void strip_newline(char *s) {
+    size_t len = strlen(s);
+    if (len > 0 && s[len - 1] == '\n') s[len - 1] = '\0';
+}
+
+static void *receiver(void *arg) {
+    LMPContext *ctx = (LMPContext *)arg;
+    uint8_t  type;
+    char     buf[4096];
+    uint32_t len;
+
+    while (lmp_recv(ctx->sock, &type, buf, sizeof(buf), &len) == 0) {
+        printf("\r\033[K"); 
+        if (dispatch_recv(type, buf, len, ctx) == COMMAND_UNRECOGNIZED)
+            printf("[warning]: unrecognized message type 0x%02X\n", type);
+        print_prompt();
+    }
+
+    printf("*** Peer disconnected.\n");
+    return NULL;
+}
+
+void chat_loop(int sock) {
+    pthread_t  recv_thread;
+    char       line[1024];
+    LMPContext ctx;
+    ctx.sock = sock;
+
+    strncpy(ctx.my_nick,   "me",   sizeof(ctx.my_nick)   - 1);
+    strncpy(ctx.peer_nick, "peer", sizeof(ctx.peer_nick) - 1);
+    ctx.my_nick  [sizeof(ctx.my_nick)   - 1] = '\0';
+    ctx.peer_nick[sizeof(ctx.peer_nick) - 1] = '\0';
+
+    pthread_create(&recv_thread, NULL, receiver, &ctx);
+
+    while (1) {
+        print_prompt();
+        if (!fgets(line, sizeof(line), stdin)) break;
+        strip_newline(line);
+
+        if (line[0] == '/') {
+            switch (dispatch_send(line + 1, &ctx)) {
+                case COMMAND_SUCCESS:      break;
+                case COMMAND_ERROR:        printf("Error executing '%s'\n",        line); break;
+                case COMMAND_UNRECOGNIZED: printf("Unrecognized command '%s'\n",   line); break;
+            }
+        } else {
+            lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line));
+        }
+    }
+
+    shutdown(sock, SHUT_WR);
+    pthread_join(recv_thread, NULL);
 }
 
 int lmp_send(int fd, uint8_t type, const char *payload, uint32_t len) {
@@ -48,60 +166,4 @@ int lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *l
     *type_out = hdr.type;
     *len_out = plen;
     return 0;
-}
-
-static void strip_newline(char *s) {
-    size_t len = strlen(s);
-    if (len > 0 && s[len - 1] == '\n') s[len - 1] = '\0';
-}
-
-static void *receiver(void *arg) {
-    int sock = *(int *)arg;
-    uint8_t type;
-    char buf[4096];
-    uint32_t len;
-    char peer_nick[64];
-
-    strncpy(peer_nick, "peer", sizeof(peer_nick) - 1);
-    peer_nick[sizeof(peer_nick) - 1] = '\0';
-
-    while (lmp_recv(sock, &type, buf, sizeof(buf), &len) == 0) {
-        if (type == LMP_MSG)
-            printf("[%s]: %s\n", peer_nick, buf);
-        else if (type == LMP_NICKNAME) {
-            strncpy(peer_nick, buf, sizeof(peer_nick) - 1);
-            peer_nick[sizeof(peer_nick) - 1] = '\0';
-            printf("*** Peer is now known as: %s\n", peer_nick);
-            lmp_send(sock, LMP_ACK, "nickname ack", 12);
-        } else if (type == LMP_ACK)
-            printf("[ack]: %s\n", buf);
-        else if (type == LMP_ERROR)
-            printf("[error]: %s\n", buf);
-    }
-    printf("*** Peer disconnected.\n");
-    return NULL;
-}
-
-void chat_loop(int sock) {
-    pthread_t recv_thread;
-    char line[1024];
-    char nickname[64];
-
-    strncpy(nickname, "me", sizeof(nickname) - 1);
-    nickname[sizeof(nickname) - 1] = '\0';
-
-    pthread_create(&recv_thread, NULL, receiver, &sock);
-
-    while (fgets(line, sizeof(line), stdin)) {
-        strip_newline(line);
-        if (strncmp(line, "/nick ", 6) == 0) {
-            strncpy(nickname, line + 6, sizeof(nickname) - 1);
-            nickname[sizeof(nickname) - 1] = '\0';
-            lmp_send(sock, LMP_NICKNAME, nickname, (uint32_t)strlen(nickname));
-        } else {
-            lmp_send(sock, LMP_MSG, line, (uint32_t)strlen(line));
-        }
-    }
-    shutdown(sock, SHUT_WR);
-    pthread_join(recv_thread, NULL);
 }

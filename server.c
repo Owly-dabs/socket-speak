@@ -9,6 +9,8 @@
 
 #define PORT 8081
 
+void base_commands_init(void);
+
 int main(int argc, char const *argv[])
 {
     int server_fd, new_socket;
@@ -37,33 +39,16 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-    for (;;)
+    printf("Accepting new client\n");
+    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
     {
-        int pid;
-        printf("Accepting new client\n");
-        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
-        {
-            perror("accept");
-            exit(EXIT_FAILURE);
-        }
-
-        if ((pid = fork()) == -1)
-        {
-            close(new_socket);
-            continue;
-        }
-        else if (pid > 0) /* parent process */
-        {
-            close(new_socket);
-            continue;
-        }
-        else /* child process */
-        {
-            close(server_fd);
-            chat_loop(new_socket);
-            close(new_socket);
-            return 0;
-        }
+        perror("accept");
+        exit(EXIT_FAILURE);
     }
+    
+    close(server_fd);
+    base_commands_init();
+    chat_loop(new_socket);
+    close(new_socket);
     return 0;
 }
