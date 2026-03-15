@@ -2,8 +2,7 @@
 
 ## Overview
 
-Each command lives in its own `.c` file. You never need to touch `commands.c` — you only need to create your file and register it in `main.c`.
-
+Each command lives in its own `.c` file. You never need to touch `lmp.c` — you only need to create your file and register it in `server.c`/`client.c`.
 ---
 
 ## Step 1 — Create your command file
