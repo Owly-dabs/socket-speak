@@ -100,7 +100,7 @@ gcc -ansi -pedantic client.c lmp.c base_commands.c -lpthread -o ./bin/client && 
 ## Rules
 
 - **One file per command** — `mycommand_command.c` contains only the handlers for `mycommand`
-- **Avoid editing `commands.c`** — the handler (aka, the dispatcher) logic is managed here and will affect all other commands
+- **Avoid editing `lmp.c`** — the handler (aka, the dispatcher) logic is managed here and will affect all other commands
 - **Byte codes are unique** — check the `LMPCode` enum before picking one
 - **`0xFF` is reserved** — it is permanently assigned to `LMP_ERROR`
 - **Return the right result** — return `COMMAND_SUCCESS` on success, `COMMAND_ERROR` on failure, never `COMMAND_UNRECOGNIZED` (that is for the dispatcher only)
