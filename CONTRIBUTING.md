@@ -80,7 +80,7 @@ void init_commands(void)
 
 ## Step 4 — Add to the build
 
-TODO: To be replaced by MAKEFILE
+> Automatically done by MAKEFILE
 
 ---
 
