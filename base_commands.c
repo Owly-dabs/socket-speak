@@ -4,7 +4,8 @@
 
 /* MSG */
 static CommandResult msg_send(uint8_t code, const char *args, LMPContext *ctx) {
-    lmp_send(ctx->sock, code, args, (uint32_t)strlen(args));
+    if (lmp_send(ctx->sock, code, args, (uint32_t)strlen(args)) < 0)
+        return COMMAND_ERROR;
     return COMMAND_SUCCESS;
 }
 
@@ -17,7 +18,8 @@ static CommandResult msg_recv(uint8_t code, const char *buf, uint32_t len, LMPCo
 static CommandResult nick_send(uint8_t code, const char *args, LMPContext *ctx) {
     strncpy(ctx->my_nick, args, sizeof(ctx->my_nick) - 1);
     ctx->my_nick[sizeof(ctx->my_nick) - 1] = '\0';
-    lmp_send(ctx->sock, code, args, (uint32_t)strlen(args));
+    if (lmp_send(ctx->sock, code, args, (uint32_t)strlen(args)) < 0)
+        return COMMAND_ERROR;
     return COMMAND_SUCCESS;
 }
 
@@ -25,7 +27,8 @@ static CommandResult nick_recv(uint8_t code, const char *buf, uint32_t len, LMPC
     strncpy(ctx->peer_nick, buf, sizeof(ctx->peer_nick) - 1);
     ctx->peer_nick[sizeof(ctx->peer_nick) - 1] = '\0';
     printf("*** Peer is now known as: %s\n", ctx->peer_nick);
-    lmp_send(ctx->sock, LMP_ACK, "nickname ack", 12);
+    if (lmp_send(ctx->sock, LMP_ACK, "nickname ack", 12) < 0)
+        return COMMAND_ERROR;
     return COMMAND_SUCCESS;
 }
 
