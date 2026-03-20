@@ -73,6 +73,13 @@ CommandResult dispatch_send(const char *line, LMPContext *ctx) {
     size_t i;
     char *name;
     char *args;
+
+    if (strnlen(line, sizeof(buf)) >= sizeof(buf)) {
+        fprintf(stderr, "dispatch_send: command line too long (max %d characters)\n",
+                (int)(sizeof(buf) - 1));
+        return COMMAND_ERROR;
+    }
+
     strncpy(buf, line, sizeof(buf) - 1);
     buf[sizeof(buf) - 1] = '\0';
 
