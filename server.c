@@ -47,7 +47,7 @@ int main(int argc, char const *argv[])
         perror("accept");
         exit(EXIT_FAILURE);
     }
-    
+
     close(server_fd);
     base_commands_init();
     chat_loop(new_socket);
