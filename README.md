@@ -24,6 +24,8 @@ It should print the following:
 Accepting new client
 ```
 
+> **Note:** The server is single-session by design. It accepts exactly one client connection per invocation and exits when that client disconnects. To start a new session, run the server again.
+
 2. Run the client
 ```
 $ ./client <server_local_ip_addr>
