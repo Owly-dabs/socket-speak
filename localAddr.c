@@ -6,7 +6,8 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 
-int main() {
+int main()
+{
     struct ifaddrs *ifaddr, *ifa;
     char ip[INET_ADDRSTRLEN];
 
@@ -16,9 +17,11 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    for (ifa = ifaddr; ifa!= NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET) {
-            struct sockaddr_in *addr = (struct sockaddr_in *) ifa->ifa_addr;
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+    {
+        if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET)
+        {
+            struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
             inet_ntop(AF_INET, &addr->sin_addr, ip, INET_ADDRSTRLEN);
             printf("%s: %s\n", ifa->ifa_name, ip);
         }
