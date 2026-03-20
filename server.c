@@ -15,7 +15,7 @@ int main(int argc, char const *argv[])
 {
     int server_fd, new_socket;
     struct sockaddr_in address;
-    int addrlen = sizeof(address);
+    socklen_t addrlen = sizeof(address);
 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {
@@ -40,7 +40,7 @@ int main(int argc, char const *argv[])
     }
 
     printf("Accepting new client\n");
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
+    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen)) < 0)
     {
         perror("accept");
         exit(EXIT_FAILURE);
