@@ -28,7 +28,8 @@ void register_command(uint8_t code, const char *name, SendHandler send, RecvHand
     command_table[command_count].code = code;
     command_table[command_count].send = send;
     command_table[command_count].recv = recv;
-    snprintf(command_table[command_count].name, MAX_NAME_LEN, "%s", name);
+    strncpy(command_table[command_count].name, name, MAX_NAME_LEN - 1);
+    command_table[command_count].name[MAX_NAME_LEN - 1] = '\0';
     command_count++;
 }
 
@@ -37,7 +38,8 @@ CommandResult dispatch_send(const char *line, LMPContext *ctx) {
     size_t i;
     char *name;
     char *args;
-    snprintf(buf, sizeof(buf), "%s", line);
+    strncpy(buf, line, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
 
     name = strtok(buf, " ");
     if (!name) return COMMAND_UNRECOGNIZED;
