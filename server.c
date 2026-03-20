@@ -39,6 +39,8 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
+    /* Single-session by design: accept one client, then close the listening socket.
+       Re-run the server to accept a new session. */
     printf("Accepting new client\n");
     if ((new_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen)) < 0)
     {
