@@ -12,6 +12,7 @@ Create `mycommand_command.c`:
 
 ```c
 #include "lmp.h"
+#include "commands_registry.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -43,7 +44,7 @@ register_command(0xXX, "mycommand", mycommand_send, NULL);  /* send only    */
 
 ## Step 2 — Add your byte code to the enum
 
-In `lmp.h`, add your code to `LMPCode`:
+In `commands_registry.h`, add your code to `LMPCode`:
 
 ```c
 typedef enum {
@@ -59,23 +60,19 @@ Pick an unused byte code. `0xFF` is reserved for `LMP_ERROR`.
 
 ---
 
-## Step 3 — Register in `server.c` and `client.c`
-
-Declare and call your init function in  `server.c` and `client.c`:
+## Step 3 — Register in `commands_registry.c`
 
 ```c
-#include "lmp.h"
+#include "commands_registry.h"
+#include "base_commands.h"
+/* Add #include directives for any other required headers */
 
-void mycommand_init(void);   /* <-- add this */
+void init_commands(void)
+{
+    base_commands_init();
 
-int main(int argc, char *argv[]) {
-    ...
-    ...
+    /* Append any additional command initializations here */
     mycommand_init();        /* <-- add this */
-    chat_loop(sock);
-    ...
-    ...
-    return 0;
 }
 ```
 
@@ -83,17 +80,7 @@ int main(int argc, char *argv[]) {
 
 ## Step 4 — Add to the build
 
-Add your file to the compile command in `.vscode/tasks.json`:
-
-For `server.c`:
-```bash
-gcc -ansi -pedantic server.c lmp.c base_commands.c -lpthread -o ./bin/server && ./bin/server
-```
-
-For `client.c`:
-```bash
-gcc -ansi -pedantic client.c lmp.c base_commands.c -lpthread -o ./bin/client && ./bin/client ${input:ipAddress}
-```
+TODO: To be replaced by MAKEFILE
 
 ---
 

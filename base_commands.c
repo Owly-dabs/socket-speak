@@ -1,6 +1,7 @@
-#include "lmp.h"
 #include <stdio.h>
 #include <string.h>
+#include "lmp.h"
+#include "commands_registry.h"
 
 /* MSG */
 static CommandResult msg_send(uint8_t code, const char *args, LMPContext *ctx)

@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <pthread.h>
+#include "commands_registry.h"
 
 #define MAX_COMMANDS 32
 #define MAX_NAME_LEN 32
@@ -175,11 +176,6 @@ static void *receiver(void *arg)
     return NULL;
 }
 
-void init_commands(void)
-{
-    base_commands_init();
-}
-
 /* Middleware function to handle chat functionality */
 /* int sock: socket file descriptor */
 /* const char *role: role of the user (e.g., "server", "client") */
@@ -193,8 +189,7 @@ void chat(int sock, const char *role)
 
     /* TODO: Accept or Reject incoming connections */
 
-    /* Initialize all commands */
-    init_commands();
+    init_commands(); /* Initialize all commands */
     chat_loop(sock);
 }
 
