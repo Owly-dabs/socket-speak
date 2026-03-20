@@ -22,13 +22,47 @@ static CommandEntry command_table[MAX_COMMANDS];
 static size_t       command_count = 0;
 
 void register_command(uint8_t code, const char *name, SendHandler send, RecvHandler recv) {
-    if (command_count >= MAX_COMMANDS) {
-        fprintf(stderr, "register_command: table full, cannot register '%s'\n", name);
+    size_t i;
+    size_t name_len;
+
+    if (!name) {
+        fprintf(stderr, "register_command: cannot register command with NULL name (code=%u)\n", (unsigned)code);
         return;
     }
+
+    if (command_count >= MAX_COMMANDS) {
+        fprintf(stderr, "register_command: table full, cannot register '%s' (code=%u)\n", name, (unsigned)code);
+        return;
+    }
+
+    name_len = strlen(name);
+    if (name_len >= MAX_NAME_LEN) {
+        fprintf(stderr,
+                "register_command: name '%s' too long (length=%zu, max=%d), not registering (code=%u)\n",
+                name, name_len, MAX_NAME_LEN - 1, (unsigned)code);
+        return;
+    }
+
+    /* Reject duplicate code or name to keep dispatch behavior unambiguous. */
+    for (i = 0; i < command_count; i++) {
+        if (command_table[i].code == code) {
+            fprintf(stderr,
+                    "register_command: duplicate command code %u for name '%s' (already used by '%s')\n",
+                    (unsigned)code, name, command_table[i].name);
+            return;
+        }
+        if (strcmp(command_table[i].name, name) == 0) {
+            fprintf(stderr,
+                    "register_command: duplicate command name '%s' (already used with code %u)\n",
+                    name, (unsigned)command_table[i].code);
+            return;
+        }
+    }
+
     command_table[command_count].code = code;
     command_table[command_count].send = send;
     command_table[command_count].recv = recv;
+    /* name_len < MAX_NAME_LEN has been validated, so this cannot truncate. */
     strncpy(command_table[command_count].name, name, MAX_NAME_LEN - 1);
     command_table[command_count].name[MAX_NAME_LEN - 1] = '\0';
     command_count++;
