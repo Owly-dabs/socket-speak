@@ -38,8 +38,8 @@ void register_command(uint8_t code, const char *name, SendHandler send, RecvHand
     name_len = strlen(name);
     if (name_len >= MAX_NAME_LEN) {
         fprintf(stderr,
-                "register_command: name '%s' too long (length=%zu, max=%d), not registering (code=%u)\n",
-                name, name_len, MAX_NAME_LEN - 1, (unsigned)code);
+                "register_command: name '%s' too long (length=%lu, max=%d), not registering (code=%u)\n",
+                name, (unsigned long)name_len, MAX_NAME_LEN - 1, (unsigned)code);
         return;
     }
 
