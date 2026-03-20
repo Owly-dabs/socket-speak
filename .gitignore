@@ -4,3 +4,4 @@ server
 localAddr
 PLAN.md
 scrapy*
+*.o
