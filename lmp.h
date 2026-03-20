@@ -19,14 +19,6 @@ typedef struct lmp_header
 
 typedef enum
 {
-    LMP_MSG = 0x01,
-    LMP_NICK = 0x02,
-    LMP_ACK = 0x03,
-    LMP_ERROR = 0xFF
-} LMPCode;
-
-typedef enum
-{
     COMMAND_SUCCESS,
     COMMAND_ERROR,
     COMMAND_UNRECOGNIZED
