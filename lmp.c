@@ -179,8 +179,12 @@ void chat_loop(int sock)
 {
     pthread_t recv_thread;
     char line[1024];
+    char peer_ip[INET_ADDRSTRLEN];
     LMPContext ctx;
     ctx.sock = sock;
+
+    if (get_peer_ip(sock, peer_ip, sizeof(peer_ip)) == 0)
+        printf("Connected from IP: %s\n", peer_ip);
 
     strncpy(ctx.my_nick, "me", sizeof(ctx.my_nick) - 1);
     strncpy(ctx.peer_nick, "peer", sizeof(ctx.peer_nick) - 1);
@@ -256,5 +260,40 @@ int lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *l
 
     *type_out = hdr.type;
     *len_out = plen;
+    return 0;
+}
+
+int get_peer_ip(int sockfd, char *ip_str, size_t ip_str_len)
+{
+    struct sockaddr_storage peer_addr;
+    socklen_t peer_addr_len = sizeof(peer_addr);
+
+    if (getpeername(sockfd, (struct sockaddr *)&peer_addr, &peer_addr_len) == -1)
+    {
+        perror("getpeername failed");
+        return -1;
+    }
+
+    /* Check address family and convert to string */
+    if (peer_addr.ss_family == AF_INET)
+    {
+        struct sockaddr_in *ipv4 = (struct sockaddr_in *)&peer_addr;
+        if (inet_ntop(AF_INET, &(ipv4->sin_addr), ip_str, ip_str_len) == NULL)
+        {
+            perror("inet_ntop (IPv4) failed");
+            return -1;
+        }
+    }
+    else if (peer_addr.ss_family == AF_INET6)
+    {
+        printf("Connecting with IPv6 address, not supported in this server\n");
+        return -1;
+    }
+    else
+    {
+        printf("Unknown address family\n");
+        return -1;
+    }
+
     return 0;
 }

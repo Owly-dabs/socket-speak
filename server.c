@@ -14,12 +14,20 @@ void base_commands_init(void);
 int main(int argc, char const *argv[])
 {
     int server_fd, new_socket;
+    int opt = 1;
     struct sockaddr_in address;
     socklen_t addrlen = sizeof(address);
 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {
         perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    {
+        perror("setsockopt SO_REUSEADDR failed");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
