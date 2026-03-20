@@ -175,16 +175,36 @@ static void *receiver(void *arg)
     return NULL;
 }
 
+void init_commands(void)
+{
+    base_commands_init();
+}
+
+/* Middleware function to handle chat functionality */
+/* int sock: socket file descriptor */
+/* const char *role: role of the user (e.g., "server", "client") */
+void chat(int sock, const char *role)
+{
+    char peer_ip[INET_ADDRSTRLEN];
+    if (get_peer_ip(sock, peer_ip, sizeof(peer_ip)) == 0)
+        printf("Connected from IP: %s\n", peer_ip);
+
+    /* TODO: Future implementation to load old messages */
+
+    /* TODO: Accept or Reject incoming connections */
+
+    /* Initialize all commands */
+    init_commands();
+    chat_loop(sock);
+}
+
+/* Actual chat loop implementation */
 void chat_loop(int sock)
 {
     pthread_t recv_thread;
     char line[1024];
-    char peer_ip[INET_ADDRSTRLEN];
     LMPContext ctx;
     ctx.sock = sock;
-
-    if (get_peer_ip(sock, peer_ip, sizeof(peer_ip)) == 0)
-        printf("Connected from IP: %s\n", peer_ip);
 
     strncpy(ctx.my_nick, "me", sizeof(ctx.my_nick) - 1);
     strncpy(ctx.peer_nick, "peer", sizeof(ctx.peer_nick) - 1);

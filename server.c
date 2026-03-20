@@ -9,8 +9,6 @@
 
 #define PORT 8081
 
-void base_commands_init(void);
-
 int main(int argc, char const *argv[])
 {
     int server_fd, new_socket;
@@ -57,8 +55,7 @@ int main(int argc, char const *argv[])
     }
 
     close(server_fd);
-    base_commands_init();
-    chat_loop(new_socket);
+    chat(new_socket, "server");
     close(new_socket);
     return 0;
 }

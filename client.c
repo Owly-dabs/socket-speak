@@ -9,8 +9,6 @@
 
 #define PORT 8081
 
-void base_commands_init(void);
-
 int main(int argc, char const *argv[])
 {
     int sock = 0;
@@ -44,8 +42,7 @@ int main(int argc, char const *argv[])
     }
 
     printf("Connected. Type messages or /nick <name> to set nickname. Ctrl+D to quit.\n");
-    base_commands_init();
-    chat_loop(sock);
+    chat(sock, "client");
     close(sock);
     return 0;
 }
