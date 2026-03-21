@@ -188,8 +188,6 @@ void chat(int sock, const char *role)
 
     /* TODO: Future implementation to load old messages */
 
-    /* TODO: Accept or Reject incoming connections */
-
     init_commands(); /* Initialize all commands */
     chat_loop(sock);
 }
