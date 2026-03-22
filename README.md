@@ -45,3 +45,11 @@ Reserved -- for future use
 Payload length -- 4 bytes gives up to 4GB
 
 
+
+## Testing
+
+### Commands
+
+```bash
+gcc test.c directory_manager.c -ansi -pedantic && ./a.out
+```
