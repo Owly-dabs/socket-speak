@@ -6,7 +6,7 @@
         {
             "label": "Build and Run Server",
             "type": "shell",
-            "command": "make -f MAKEFILE && ./bin/server",
+            "command": "make && ./bin/server",
             /* gcc -ansi -pedantic server.c lmp.c base_commands.c commands_registry.c -lpthread -o ./bin/server && ./bin/server */
             "problemMatcher": [],
             "group": {
@@ -17,7 +17,7 @@
         {
             "label": "Build and Run Client",
             "type": "shell",
-            "command": "make -f MAKEFILE && ./bin/client ${input:ipAddress}",
+            "command": "make && ./bin/client ${input:ipAddress}",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
