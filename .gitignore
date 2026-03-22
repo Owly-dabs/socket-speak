@@ -6,3 +6,4 @@ PLAN.md
 scrapy*
 *.o
 .chat_logs/
+.history/
