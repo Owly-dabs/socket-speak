@@ -4,7 +4,7 @@
 
 typedef struct
 {
-    char uid[9]; // 8 characters for UID + null terminator
+    char uid[9]; /* 8 characters for UID + null terminator */
 } UserInformation;
 extern UserInformation user;
 

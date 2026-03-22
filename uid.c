@@ -12,7 +12,7 @@ The resulting string is stored in the static hex_uid buffer and returned.
 static char *uid_int_to_hex(int uid)
 {
     sprintf(hex_uid, "%08X", uid);
-    hex_uid[8] = '\0'; // Ensure null termination
+    hex_uid[8] = '\0'; /* Ensure null termination */
     return hex_uid;
 }
 
@@ -43,7 +43,7 @@ char *get_uid(void)
         if (uid_file != NULL)
         {
             char *hex_string = uid_int_to_hex(UID);
-            strcpy(hex_uid, hex_string); // Store the hex string in the static buffer
+            strcpy(hex_uid, hex_string); /* Store the hex string in the static buffer */
             fprintf(uid_file, "%s", hex_uid);
             fclose(uid_file);
         }
@@ -53,6 +53,6 @@ char *get_uid(void)
             exit(EXIT_FAILURE);
         }
     }
-    hex_uid[8] = '\0'; // Ensure null termination
+    hex_uid[8] = '\0'; /* Ensure null termination */
     return hex_uid;
 }
