@@ -29,6 +29,8 @@ typedef struct
     int sock;
     char peer_nick[64];
     char my_nick[64];
+    char peer_ip[64];
+    char history_path[256];
 } LMPContext;
 
 typedef CommandResult (*SendHandler)(uint8_t code, const char *args, LMPContext *ctx);
@@ -41,8 +43,13 @@ CommandResult dispatch_recv(uint8_t code, const char *buf, uint32_t len, LMPCont
 int lmp_send(int fd, uint8_t type, const char *payload, uint32_t len);
 int lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *len_out);
 void chat(int sock, const char *role);
-void chat_loop(int sock);
+void chat_loop(int sock, const char *peer_ip, const char *history_path);
 int get_peer_ip(int sockfd, char *ip_str, size_t ip_str_len);
 void connection_handler(int sock);
+
+int lmp_history_ensure_dir(void);
+int lmp_history_build_path(const char *peer_ip, char *out_path, size_t out_path_len);
+int lmp_history_append(LMPContext *ctx, const char *direction, const char *message);
+int lmp_history_print(const char *path);
 
 #endif /* LMP_H */

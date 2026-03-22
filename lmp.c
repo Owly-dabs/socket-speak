@@ -4,8 +4,11 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
+#include <errno.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <pthread.h>
 #include "commands_registry.h"
@@ -23,6 +26,8 @@ typedef struct
 
 static CommandEntry command_table[MAX_COMMANDS];
 static size_t command_count = 0;
+
+#define HISTORY_DIR ".history"
 
 void register_command(uint8_t code, const char *name, SendHandler send, RecvHandler recv)
 {
@@ -158,6 +163,99 @@ static void strip_newline(char *s)
         s[len - 1] = '\0';
 }
 
+int lmp_history_ensure_dir(void)
+{
+    struct stat st;
+
+    if (stat(HISTORY_DIR, &st) == 0)
+    {
+        if (!S_ISDIR(st.st_mode))
+            return -1;
+        return 0;
+    }
+
+    if (mkdir(HISTORY_DIR, 0700) == 0)
+        return 0;
+    if (errno == EEXIST)
+        return 0;
+    return -1;
+}
+
+int lmp_history_build_path(const char *peer_ip, char *out_path, size_t out_path_len)
+{
+    char safe_ip[64];
+    size_t i;
+    size_t j;
+
+    if (!peer_ip || !out_path || out_path_len == 0)
+        return -1;
+
+    if (lmp_history_ensure_dir() < 0)
+        return -1;
+
+    j = 0;
+    for (i = 0; peer_ip[i] != '\0' && j < sizeof(safe_ip) - 1; i++)
+    {
+        if (isalnum((unsigned char)peer_ip[i]) || peer_ip[i] == '.')
+            safe_ip[j++] = peer_ip[i];
+        else
+            safe_ip[j++] = '_';
+    }
+    safe_ip[j] = '\0';
+
+    if (safe_ip[0] == '\0')
+        strncpy(safe_ip, "unknown_peer", sizeof(safe_ip) - 1);
+
+    safe_ip[sizeof(safe_ip) - 1] = '\0';
+    if (snprintf(out_path, out_path_len, "%s/%s.log", HISTORY_DIR, safe_ip) < 0)
+        return -1;
+    out_path[out_path_len - 1] = '\0';
+    return 0;
+}
+
+int lmp_history_append(LMPContext *ctx, const char *direction, const char *message)
+{
+    FILE *fp;
+
+    if (!ctx || !direction || !message || ctx->history_path[0] == '\0')
+        return -1;
+
+    fp = fopen(ctx->history_path, "a");
+    if (!fp)
+        return -1;
+
+    if (strcmp(direction, "OUT") == 0)
+        fprintf(fp, "%s: %s\n", ctx->my_nick, message);
+    else
+        fprintf(fp, "%s: %s\n", ctx->peer_nick, message);
+
+    fclose(fp);
+    return 0;
+}
+
+int lmp_history_print(const char *path)
+{
+    FILE *fp;
+    char line[512];
+
+    if (!path || path[0] == '\0')
+        return -1;
+
+    fp = fopen(path, "r");
+    if (!fp)
+    {
+        printf("*** No old messages yet.\n");
+        return 0;
+    }
+
+    printf("*** Previous messages:\n");
+    while (fgets(line, sizeof(line), fp) != NULL)
+        fputs(line, stdout);
+
+    fclose(fp);
+    return 0;
+}
+
 static void *receiver(void *arg)
 {
     LMPContext *ctx = (LMPContext *)arg;
@@ -183,17 +281,28 @@ static void *receiver(void *arg)
 void chat(int sock, const char *role)
 {
     char peer_ip[INET_ADDRSTRLEN];
+    char history_path[256];
+
+    (void)role;
+
     if (get_peer_ip(sock, peer_ip, sizeof(peer_ip)) == 0)
         printf("Connected from IP: %s\n", peer_ip);
+    else
+        strncpy(peer_ip, "unknown_peer", sizeof(peer_ip) - 1);
 
-    /* TODO: Future implementation to load old messages */
+    peer_ip[sizeof(peer_ip) - 1] = '\0';
+
+    if (lmp_history_build_path(peer_ip, history_path, sizeof(history_path)) == 0)
+        lmp_history_print(history_path);
+    else
+        history_path[0] = '\0';
 
     init_commands(); /* Initialize all commands */
-    chat_loop(sock);
+    chat_loop(sock, peer_ip, history_path);
 }
 
 /* Actual chat loop implementation */
-void chat_loop(int sock)
+void chat_loop(int sock, const char *peer_ip, const char *history_path)
 {
     pthread_t recv_thread;
     char line[1024];
@@ -204,6 +313,10 @@ void chat_loop(int sock)
     strncpy(ctx.peer_nick, "peer", sizeof(ctx.peer_nick) - 1);
     ctx.my_nick[sizeof(ctx.my_nick) - 1] = '\0';
     ctx.peer_nick[sizeof(ctx.peer_nick) - 1] = '\0';
+    strncpy(ctx.peer_ip, peer_ip ? peer_ip : "unknown_peer", sizeof(ctx.peer_ip) - 1);
+    ctx.peer_ip[sizeof(ctx.peer_ip) - 1] = '\0';
+    strncpy(ctx.history_path, history_path ? history_path : "", sizeof(ctx.history_path) - 1);
+    ctx.history_path[sizeof(ctx.history_path) - 1] = '\0';
 
     pthread_create(&recv_thread, NULL, receiver, &ctx);
 
@@ -230,7 +343,8 @@ void chat_loop(int sock)
         }
         else
         {
-            lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line));
+            if (lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line)) == 0)
+                lmp_history_append(&ctx, "OUT", line);
         }
     }
 
