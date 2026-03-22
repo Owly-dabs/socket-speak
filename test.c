@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "directory_manager.h"
+#include "uid.h"
 
 void test_directory_manager_default(void)
 {
@@ -47,10 +48,20 @@ void test_create_file_in_user_directory(void)
     remove(filepath);
 }
 
+void test_uid(void)
+{
+    char *uid;
+    printf("Testing UID generation...\n");
+
+    uid = get_uid();
+    printf("Generated UID: %s\n", uid);
+}
+
 int main()
 {
     test_directory_manager_default();
     test_directory_manager();
     test_create_file_in_user_directory();
+    test_uid();
     return 0;
 }
