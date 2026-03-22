@@ -11,7 +11,7 @@
 
 int main(int argc, char const *argv[])
 {
-    int server_fd, new_socket;
+    int server_fd, new_socket, pid;
     int opt = 1;
     struct sockaddr_in address;
     socklen_t addrlen = sizeof(address);
@@ -54,8 +54,23 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-    close(server_fd);
-    chat(new_socket, "server");
-    close(new_socket);
+    if ((pid = fork()) == -1)
+    { /* parent process */
+        close(new_socket);
+        close(server_fd);
+        return -1;
+    }
+    else if (pid > 0)
+    {                     /* parent process */
+        close(server_fd); /* parent doesn't need the listener */
+        chat(new_socket, "server");
+        close(new_socket);
+    }
+    else if (pid == 0)
+    {                      /* child process */
+        close(new_socket); /* child doesn't need the client socket */
+        connection_handler(server_fd);
+        close(server_fd);
+    }
     return 0;
 }

@@ -1,5 +1,6 @@
 #include "lmp.h"
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -187,8 +188,6 @@ void chat(int sock, const char *role)
 
     /* TODO: Future implementation to load old messages */
 
-    /* TODO: Accept or Reject incoming connections */
-
     init_commands(); /* Initialize all commands */
     chat_loop(sock);
 }
@@ -311,4 +310,27 @@ int get_peer_ip(int sockfd, char *ip_str, size_t ip_str_len)
     }
 
     return 0;
+}
+
+void connection_handler(int sock)
+{ /* handles incoming connections */
+    int temp_sock;
+    struct sockaddr *address;
+    socklen_t addrlen = sizeof(address);
+
+    for (;;)
+    {
+        if ((temp_sock = accept(sock, (struct sockaddr *)&address, &addrlen)) < 0)
+        {
+            perror("accept: server unable to listen to new connections");
+            exit(EXIT_FAILURE);
+        };
+
+        if (lmp_send(temp_sock, LMP_ERROR, "server busy", 11) < 0)
+        {
+            perror("lmp_send");
+        }
+
+        close(temp_sock);
+    }
 }
