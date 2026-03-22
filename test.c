@@ -3,6 +3,7 @@
 #include <string.h>
 #include "directory_manager.h"
 #include "uid.h"
+#include "user_manager.h"
 
 void test_directory_manager_default(void)
 {
@@ -44,7 +45,10 @@ void test_create_file_in_user_directory(void)
     {
         printf("Error opening file: %s\n", filepath);
     }
-    fclose(file);
+    else
+    {
+        fclose(file);
+    }
     remove(filepath);
 }
 
@@ -57,11 +61,34 @@ void test_uid(void)
     printf("Generated UID: %s\n", uid);
 }
 
+void test_user_manager(void)
+{
+    UserInformation *user_info;
+    printf("Testing user information initialization...\n");
+
+    user_info = init_user_information();
+    printf("User UID: %s\n", user_info->uid);
+}
+
+void test_user_manager_default(void)
+{
+    set_program_username("default");
+    flush_user_information();
+
+    UserInformation *user_info;
+    printf("Testing user information initialization...\n");
+
+    user_info = init_user_information();
+    printf("User UID: %s\n", user_info->uid);
+}
+
 int main()
 {
     test_directory_manager_default();
     test_directory_manager();
     test_create_file_in_user_directory();
     test_uid();
+    test_user_manager();
+    test_user_manager_default();
     return 0;
 }

@@ -2,6 +2,7 @@
 #ifndef DIRECTORY_MANAGER_H
 #define DIRECTORY_MANAGER_H
 #define ROOT_DIRECTORY "~/lmp/"
+#include <stdio.h>
 
 static char pusername[256] = "default/";
 static char user_directory[512] = {0};
