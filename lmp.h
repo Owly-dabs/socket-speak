@@ -43,7 +43,9 @@ CommandResult dispatch_recv(uint8_t code, const char *buf, uint32_t len, LMPCont
 int lmp_send(int fd, uint8_t type, const char *payload, uint32_t len);
 int lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *len_out);
 void chat(int sock, const char *role);
+
 void chat_loop(int sock, const char *peer_ip, const char *history_path);
+
 int get_peer_ip(int sockfd, char *ip_str, size_t ip_str_len);
 void connection_handler(int sock);
 

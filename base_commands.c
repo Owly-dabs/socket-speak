@@ -8,12 +8,14 @@ static CommandResult msg_send(uint8_t code, const char *args, LMPContext *ctx)
 {
     if (lmp_send(ctx->sock, code, args, (uint32_t)strlen(args)) < 0)
         return COMMAND_ERROR;
+    lmp_history_append(ctx, "OUT", args);
     return COMMAND_SUCCESS;
 }
 
 static CommandResult msg_recv(uint8_t code, const char *buf, uint32_t len, LMPContext *ctx)
 {
     printf("[%s]: %s\n", ctx->peer_nick, buf);
+    lmp_history_append(ctx, "IN", buf);
     return COMMAND_SUCCESS;
 }
 
