@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include "user_manager.h"
+#include "directory_manager.h"
 #include "lmp.h"
 
 #define PORT 8081
@@ -13,6 +15,12 @@ int main(int argc, char const *argv[])
 {
     int sock = 0;
     struct sockaddr_in serv_addr;
+    UserInformation *user_info;
+
+    /* Init user information */
+    set_program_username("client");
+    user_info = init_user_information();
+    printf("User UID: %s\n", user_info->uid);
 
     if (argc < 2)
     {

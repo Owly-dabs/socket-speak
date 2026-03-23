@@ -10,7 +10,7 @@ BIN_DIR := bin
 
 SERVER_SRC := server.c
 CLIENT_SRC := client.c
-HELPER_MAIN_SRC := localAddr.c
+HELPER_MAIN_SRC := localAddr.c test.c
 
 COMMON_SRCS := $(filter-out $(SERVER_SRC) $(CLIENT_SRC) $(HELPER_MAIN_SRC),$(SRCS))
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
