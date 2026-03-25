@@ -19,6 +19,7 @@ int main(int argc, char const *argv[])
     UserInformation *user_info;
 
     /* Init user information */
+    set_program_username("server");
     user_info = init_user_information();
     printf("User UID: %s\n", user_info->uid);
 

@@ -32,7 +32,7 @@ char *get_uid(void)
 
     if (uid_file != NULL)
     {
-        fscanf(uid_file, "%s", &hex_uid);
+        fscanf(uid_file, "%8s", &hex_uid);
         fclose(uid_file);
     }
     else
