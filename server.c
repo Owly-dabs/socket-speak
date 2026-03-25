@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <pthread.h>
+#include "user_manager.h"
 #include "lmp.h"
 
 #define PORT 8081
@@ -15,6 +16,12 @@ int main(int argc, char const *argv[])
     int opt = 1;
     struct sockaddr_in address;
     socklen_t addrlen = sizeof(address);
+    UserInformation *user_info;
+
+    /* Init user information */
+    set_program_username("server");
+    user_info = init_user_information();
+    printf("User UID: %s\n", user_info->uid);
 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {

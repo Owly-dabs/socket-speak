@@ -4,11 +4,16 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
+#include <errno.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <pthread.h>
 #include "commands_registry.h"
+#include "directory_manager.h"
+#include "uid.h"
 
 #define MAX_COMMANDS 32
 #define MAX_NAME_LEN 32
@@ -23,6 +28,8 @@ typedef struct
 
 static CommandEntry command_table[MAX_COMMANDS];
 static size_t command_count = 0;
+
+#define HISTORY_DIR ".history"
 
 void register_command(uint8_t code, const char *name, SendHandler send, RecvHandler recv)
 {
@@ -145,9 +152,9 @@ static int read_all(int fd, void *buf, size_t n)
     return 0;
 }
 
-static void print_prompt()
+static void print_prompt(LMPContext *ctx)
 {
-    printf("\r\033[K[You]: ");
+    printf("\r\033[K[%s]: ", ctx->my_nick);
     fflush(stdout);
 }
 
@@ -170,11 +177,130 @@ static void *receiver(void *arg)
         printf("\r\033[K");
         if (dispatch_recv(type, buf, len, ctx) == COMMAND_UNRECOGNIZED)
             printf("[warning]: unrecognized message type 0x%02X\n", type);
-        print_prompt();
+        print_prompt(ctx);
     }
 
     printf("*** Peer disconnected.\n");
     return NULL;
+}
+
+int lmp_send_uid(LMPContext *ctx)
+{
+    if (ctx == NULL || ctx->my_uid[0] == '\0')
+        return -1;
+
+    return lmp_send(ctx->sock, LMP_UID, ctx->my_uid, (uint32_t)strlen(ctx->my_uid));
+}
+
+/*helper function to create a directory for lmp_history_prepare*/
+static void lmp_make_dir(const char *pathname)
+{
+    char command[512] = "mkdir -p ";
+    strcat(command, pathname);
+
+    if (system(command) != 0)
+    {
+        perror("mkdir -p failed");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void lmp_history_prepare(LMPContext *ctx)
+{
+    if (ctx == NULL)
+        return;
+
+    ctx->peer_dir[0] = '\0';
+    ctx->history_path[0] = '\0';
+
+    if (ctx->peer_uid[0] == '\0')
+        return;
+
+    strcpy(ctx->peer_dir, get_user_directory());
+    strcat(ctx->peer_dir, "peers/");
+    lmp_make_dir(ctx->peer_dir);
+
+    strcat(ctx->peer_dir, ctx->peer_uid);
+    strcat(ctx->peer_dir, "/");
+    lmp_make_dir(ctx->peer_dir);
+
+    strcpy(ctx->history_path, ctx->peer_dir);
+    strcat(ctx->history_path, "history.txt");
+}
+
+void lmp_history_load(LMPContext *ctx)
+{
+    FILE *fp;
+    char line[512];
+
+    if (ctx == NULL || ctx->history_path[0] == '\0')
+        return;
+
+    fp = fopen(ctx->history_path, "r");
+    if (fp == NULL)
+        return;
+
+    printf("\r\033[K"); /* Clear the current prompt line before printing history */
+    while (fgets(line, sizeof(line), fp) != NULL)
+    {
+        printf("%s", line);
+    }
+
+    fclose(fp);
+}
+
+int lmp_history_append(LMPContext *ctx, const char *speaker, const char *message)
+{
+    FILE *fp;
+
+    if (ctx == NULL || speaker == NULL || message == NULL)
+        return -1;
+    if (ctx->history_path[0] == '\0')
+        return -1;
+
+    fp = fopen(ctx->history_path, "a");
+    if (fp == NULL)
+        return -1;
+
+    fprintf(fp, "[%s]: %s\n", speaker, message);
+    fclose(fp);
+    return 0;
+}
+
+int lmp_save_nick(const char *nick)
+{
+    FILE *fp = open_file_in_user_directory("nick.txt", "w");
+    if (fp == NULL)
+        return -1;
+    fprintf(fp, "%s", nick);
+    fclose(fp);
+    return 0;
+}
+
+int lmp_save_peer_nick(const char *peer_uid, const char *nick)
+{
+    FILE *fp;
+    char filename[32];
+    sprintf(filename, "peers/%s/nick.txt", peer_uid);
+    fp = open_file_in_user_directory(filename, "w");
+    if (fp == NULL)
+        return -1;
+    fprintf(fp, "%s", nick);
+    fclose(fp);
+    return 0;
+}
+
+int lmp_load_peer_nick(const char *peer_uid, char *nick, size_t nick_size)
+{
+    FILE *fp;
+    char filename[32];
+    sprintf(filename, "peers/%s/nick.txt", peer_uid);
+    fp = open_file_in_user_directory(filename, "r");
+    if (fp == NULL)
+        return -1;
+    fscanf(fp, "%63s", nick);
+    fclose(fp);
+    return 0;
 }
 
 /* Middleware function to handle chat functionality */
@@ -183,33 +309,67 @@ static void *receiver(void *arg)
 void chat(int sock, const char *role)
 {
     char peer_ip[INET_ADDRSTRLEN];
+
+    (void)role;
+
     if (get_peer_ip(sock, peer_ip, sizeof(peer_ip)) == 0)
         printf("Connected from IP: %s\n", peer_ip);
+    else
+        strncpy(peer_ip, "unknown_peer", sizeof(peer_ip) - 1);
 
-    /* TODO: Future implementation to load old messages */
+    peer_ip[sizeof(peer_ip) - 1] = '\0';
 
     init_commands(); /* Initialize all commands */
-    chat_loop(sock);
+    chat_loop(sock, peer_ip, "");
 }
 
 /* Actual chat loop implementation */
-void chat_loop(int sock)
+void chat_loop(int sock, const char *peer_ip, const char *history_path)
 {
     pthread_t recv_thread;
     char line[1024];
     LMPContext ctx;
+    FILE *fp;
     ctx.sock = sock;
 
-    strncpy(ctx.my_nick, "me", sizeof(ctx.my_nick) - 1);
-    strncpy(ctx.peer_nick, "peer", sizeof(ctx.peer_nick) - 1);
+    strncpy(ctx.my_nick, "You", sizeof(ctx.my_nick) - 1);
+    strncpy(ctx.peer_nick, "Peer", sizeof(ctx.peer_nick) - 1);
     ctx.my_nick[sizeof(ctx.my_nick) - 1] = '\0';
     ctx.peer_nick[sizeof(ctx.peer_nick) - 1] = '\0';
 
+    /* Load saved nickname if it exists */
+    fp = open_file_in_user_directory("nick.txt", "r");
+    if (fp != NULL)
+    {
+        fscanf(fp, "%63s", ctx.my_nick);
+        fclose(fp);
+    }
+
+    strncpy(ctx.peer_ip, peer_ip ? peer_ip : "unknown_peer", sizeof(ctx.peer_ip) - 1);
+    ctx.peer_ip[sizeof(ctx.peer_ip) - 1] = '\0';
+
+    strncpy(ctx.history_path, history_path ? history_path : "", sizeof(ctx.history_path) - 1);
+    ctx.history_path[sizeof(ctx.history_path) - 1] = '\0';
+
+    ctx.peer_uid[0] = '\0';
+    ctx.history_loaded = 0;
+
+    strncpy(ctx.my_uid, get_uid(), sizeof(ctx.my_uid) - 1);
+    ctx.my_uid[sizeof(ctx.my_uid) - 1] = '\0';
+
     pthread_create(&recv_thread, NULL, receiver, &ctx);
+
+    /* send my UID once chat starts */
+    lmp_send_uid(&ctx);
+
+    while (ctx.peer_uid[0] == '\0')
+    {
+        /* wait for peer UID before allowing chat */
+    }
 
     while (1)
     {
-        print_prompt();
+        print_prompt(&ctx);
         if (!fgets(line, sizeof(line), stdin))
             break;
         strip_newline(line);
@@ -230,7 +390,8 @@ void chat_loop(int sock)
         }
         else
         {
-            lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line));
+            if (lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line)) == 0)
+                lmp_history_append(&ctx, ctx.my_nick, line);
         }
     }
 
@@ -253,7 +414,6 @@ int lmp_send(int fd, uint8_t type, const char *payload, uint32_t len)
         return -1;
     return 0;
 }
-
 int lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *len_out)
 {
     lmp_header_t hdr;
