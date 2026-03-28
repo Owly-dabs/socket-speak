@@ -2,7 +2,6 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/debian
 {
 	"name": "Debian",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/base:debian-12",
 	"features": {
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
@@ -18,6 +17,7 @@
 			]
 		}
 	},
+	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y valgrind gdb",
 	"remoteEnv": {
 		"PATH": "${containerWorkspaceFolder}/bin:${containerEnv:PATH}"
 	},
