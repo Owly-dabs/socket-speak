@@ -12,7 +12,7 @@ DEBUG_OBJ_DIR := build_debug
 DEBUG_BIN_DIR := bin_debug
 SERVER_SRC := server.c
 CLIENT_SRC := client.c
-HELPER_MAIN_SRC := localAddr.c test.c
+HELPER_MAIN_SRC := localAddr.c test.c scrapys.c scrapyc.c
 
 COMMON_SRCS := $(filter-out $(SERVER_SRC) $(CLIENT_SRC) $(HELPER_MAIN_SRC),$(SRCS))
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
@@ -27,26 +27,13 @@ DEBUG_CLIENT_OBJS := $(DEBUG_OBJ_DIR)/client.o $(DEBUG_COMMON_OBJS)
 all: $(BIN_DIR)/server $(BIN_DIR)/client
 	rm -rf $(OBJ_DIR)
 
-debug: CFLAGS += -g -O0 -DDEBUG
-debug: $(DEBUG_BIN_DIR)/server $(DEBUG_BIN_DIR)/client
-	rm -rf $(DEBUG_OBJ_DIR)
-
 $(BIN_DIR)/server: $(SERVER_OBJS) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
 
 $(BIN_DIR)/client: $(CLIENT_OBJS) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
 
-$(DEBUG_BIN_DIR)/server: $(DEBUG_SERVER_OBJS) | $(DEBUG_BIN_DIR)
-	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
-
-$(DEBUG_BIN_DIR)/client: $(DEBUG_CLIENT_OBJS) | $(DEBUG_BIN_DIR)
-	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
-
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(DEBUG_OBJ_DIR)/%.o: %.c | $(DEBUG_OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_DIR):
@@ -54,6 +41,19 @@ $(OBJ_DIR):
 
 $(BIN_DIR):
 	mkdir -p $@
+
+debug: CFLAGS += -g -O0 -DDEBUG
+debug: $(DEBUG_BIN_DIR)/server $(DEBUG_BIN_DIR)/client
+	rm -rf $(DEBUG_OBJ_DIR)
+
+$(DEBUG_BIN_DIR)/server: $(DEBUG_SERVER_OBJS) | $(DEBUG_BIN_DIR)
+	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
+
+$(DEBUG_BIN_DIR)/client: $(DEBUG_CLIENT_OBJS) | $(DEBUG_BIN_DIR)
+	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
+
+$(DEBUG_OBJ_DIR)/%.o: %.c | $(DEBUG_OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(DEBUG_OBJ_DIR):
 	mkdir -p $@
