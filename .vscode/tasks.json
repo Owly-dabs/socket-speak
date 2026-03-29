@@ -6,8 +6,7 @@
         {
             "label": "Build and Run Server",
             "type": "shell",
-            "command": "make && ./bin/server",
-            /* gcc -ansi -pedantic server.c lmp.c base_commands.c commands_registry.c -lpthread -o ./bin/server && ./bin/server */
+            "command": "make && server",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
@@ -17,7 +16,7 @@
         {
             "label": "Build and Run Client",
             "type": "shell",
-            "command": "make && ./bin/client ${input:ipAddress}",
+            "command": "make && client",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
@@ -36,12 +35,6 @@
         }
     ],
     "inputs": [
-        {
-            "id": "ipAddress",
-            "type": "promptString",
-            "description": "IP address to connect to",
-            "default": "127.0.0.1"
-        },
         {
             "id": "serverPort",
             "type": "promptString",

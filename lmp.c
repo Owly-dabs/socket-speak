@@ -92,7 +92,7 @@ CommandResult dispatch_send(const char *line, LMPContext *ctx)
     char *name;
     char *args;
 
-    if (strnlen(line, sizeof(buf)) >= sizeof(buf))
+    if (strlen(line) >= sizeof(buf))
     {
         fprintf(stderr, "dispatch_send: command line too long (max %d characters)\n",
                 (int)(sizeof(buf) - 1));

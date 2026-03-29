@@ -5,6 +5,16 @@
 #include <stdlib.h>
 #include "directory_manager.h"
 
+typedef enum
+{
+    MADE_DIRECTORY_FALSE,
+    MADE_DIRECTORY_TRUE
+} md;
+
+static char pusername[256] = "default/";
+static char user_directory[512] = {0};
+static md made_directory = MADE_DIRECTORY_FALSE;
+
 /* Expands ROOT_DIRECTORY when it starts with "~/" into an absolute HOME path. */
 static void get_root_directory(char *buffer, size_t buffer_size)
 {

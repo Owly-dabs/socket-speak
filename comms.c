@@ -203,7 +203,6 @@ void listen_for_broadcast(struct sockaddr_in *source_addr, char *buffer, size_t 
     struct sockaddr_in listen_addr;
     socklen_t len;
     int n;
-    char sender_ip[INET_ADDRSTRLEN];
 
     if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
     {
