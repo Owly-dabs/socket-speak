@@ -1,9 +1,8 @@
 proposal.pdf
-client
-server
 localAddr
 PLAN.md
 scrapy*
 *.o
 .chat_logs/
 .history/
+*.out
