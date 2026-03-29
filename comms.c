@@ -135,6 +135,20 @@ int listen_for_connection()
     printf("Awaiting connection request\n");
     len = sizeof(peer_addr);
     accepted_sock = accept(sock, (struct sockaddr *)&peer_addr, &len);
+
+    /* The listener uses SO_RCVTIMEO only to bound discovery wait.
+       Clear it on the accepted chat socket so chat reads do not timeout. */
+    if (accepted_sock >= 0)
+    {
+        memset(&timeout, 0, sizeof(timeout));
+        if (setsockopt(accepted_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+        {
+            perror("setsockopt accepted_sock SO_RCVTIMEO reset failed");
+            close(accepted_sock);
+            accepted_sock = -1;
+        }
+    }
+
     close(sock);
     return accepted_sock;
 }

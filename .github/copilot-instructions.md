@@ -59,6 +59,7 @@ When suggesting networking changes, verify all of the following remain true:
 3. Timeout path listens for UDP and then initiates TCP connect back.
 4. Chat starts only after TCP socket establishment.
 5. Ports stay consistent between sender and listener paths.
+6. Any discovery-phase socket timeout (SO_RCVTIMEO) must not remain active on the established chat socket.
 
 ## Testing Expectations
 - At minimum, validate build success with make.
