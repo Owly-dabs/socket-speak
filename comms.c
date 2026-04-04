@@ -186,7 +186,6 @@ int connect_to(const struct in_addr *target_ip)
         exit(EXIT_FAILURE);
     }
 
-    sleep(1);
     if (connect(sock, (struct sockaddr *)&target_addr, sizeof(target_addr)) < 0)
     {
         perror("connect");

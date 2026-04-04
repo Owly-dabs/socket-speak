@@ -47,6 +47,7 @@ int main(int argc, char *argv[])
         /* Future usage for handling received broadcast message `buffer` */
         listen_for_broadcast(&source_addr, buffer, sizeof(buffer));
 
+        sleep(1);
         if ((connecting_sock = connect_to(&source_addr.sin_addr)) == -1)
         {
             perror("connect_to failed");
