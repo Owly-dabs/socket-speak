@@ -59,5 +59,6 @@ void lmp_history_load(LMPContext *ctx);
 int lmp_history_append(LMPContext *ctx, const char *speaker, const char *message);
 int lmp_save_nick(const char *nick);
 int lmp_save_peer_nick(const char *peer_uid, const char *nick);
+int lmp_load_peer_nick(const char *peer_uid, char *nick, size_t nick_size);
 
 #endif /* LMP_H */

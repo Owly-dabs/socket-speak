@@ -5,6 +5,8 @@
 #include "directory_manager.h"
 #include "uid.h"
 
+static char hex_uid[9] = {0}; /* 8 characters for hex + null terminator */
+
 /*
 Converts the current UID integer to an 8-character hexadecimal string.
 The resulting string is stored in the static hex_uid buffer and returned.
@@ -32,7 +34,7 @@ char *get_uid(void)
 
     if (uid_file != NULL)
     {
-        fscanf(uid_file, "%8s", &hex_uid);
+        fscanf(uid_file, "%8s", hex_uid);
         fclose(uid_file);
     }
     else
