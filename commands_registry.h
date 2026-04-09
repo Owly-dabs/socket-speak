@@ -9,6 +9,7 @@ typedef enum
     LMP_NICK = 0x02,
     LMP_ACK = 0x03,
     LMP_MEOW = 0x10,
+    LMP_STICKERS = 0x11,
     LMP_ERROR = 0xFF,
     LMP_UID = 0x04
 } LMPCode;
