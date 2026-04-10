@@ -5,11 +5,12 @@
 
 #define MAX_GROUP_MEMBERS 10
 #define GROUP_NAME_MAX_LEN 32
+#define NICKNAME_MAX_LEN 32
 
 typedef struct GroupMember
 {
-    int socket;
-    char uid[UID_LENGTH + 1]; /* 8 characters for hex + null terminator */
+    char uid[UID_LENGTH + 1];        /* 8 characters for hex + null terminator */
+    char nickname[NICKNAME_MAX_LEN]; /* Nickname (max 31 chars + null terminator) */
 } GroupMember;
 
 typedef struct GroupInfo
@@ -25,6 +26,6 @@ typedef struct Group
     int member_count;
 } Group;
 
-void add_member_to_group(int socket, const char *uid);
+extern Group current_group;
 
 #endif /* GROUP_H */

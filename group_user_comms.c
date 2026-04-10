@@ -84,6 +84,7 @@ int user_TCP_to_group_server(struct sockaddr_in *server_addr)
 {
     int tcp_sock, reuse = 1;
     /* Update server_addr port to the TCP port */
+    server_addr->sin_family = AF_INET;
     server_addr->sin_port = htons(GROUP_TCP_PORT);
 
     /* Create TCP socket */
