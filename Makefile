@@ -11,7 +11,7 @@ BIN_DIR := bin
 DEBUG_OBJ_DIR := build_debug
 DEBUG_BIN_DIR := bin_debug
 MAIN_SRC := main.c
-HELPER_MAIN_SRC := localAddr.c test.c scrapys.c scrapyc.c
+HELPER_MAIN_SRC := localAddr.c test.c
 
 COMMON_SRCS := $(filter-out $(MAIN_SRC) $(HELPER_MAIN_SRC),$(SRCS))
 COMMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(COMMON_SRCS))
