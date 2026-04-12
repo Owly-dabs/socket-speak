@@ -1,10 +1,11 @@
-#include "lmp.h"
-#include "commands_registry.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <termios.h>
 #include <unistd.h>
+#include "lmp.h"
+#include "commands_registry.h"
+#include "directory_manager.h"
 
 #define MAX_NAME_LEN 32
 #define MAX_STICKERS 64
@@ -19,6 +20,7 @@ typedef struct
 
 static StickerEntry sticker_array[MAX_STICKERS];
 static size_t sticker_count = 0;
+static int history_loaded = 0;
 static struct termios orig_termios;
 
 static void raw_mode_enable(void) {
@@ -88,14 +90,42 @@ char *read_multiline_overlay(void) {
     return buffer;  /* caller must free() */
 }
 
+void load_stickers() {
+    FILE *fp;
+    char *save_file;
+    char line[512];
 
-void create_sticker(char *name) {
-    char *user_sticker;
-    user_sticker = read_multiline_overlay();
-    strcpy(sticker_array[sticker_count].sticker, user_sticker);
-    strcpy(sticker_array[sticker_count].name, name);
-    sticker_count++;
-    printf("Sticker %s created!\n", name);
+    save_file = get_user_directory();
+    strcat(save_file, "saved_stickers.txt");
+    fp = fopen(save_file, "r");
+    if (fp == NULL) return;
+
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        if (strcmp(line, "<STICKER>\n") == 0) {
+            fgets(line, sizeof(line), fp);
+            line[strcspn(line, "\r\n")] = '\0';
+            strcpy(sticker_array[sticker_count].name, line);
+            fgets(line, sizeof(line), fp);
+            while (strcmp(line, "</STICKER>\n") != 0 && strcmp(line, "</STICKER>") != 0) {
+                strcat(sticker_array[sticker_count].sticker, line);
+                fgets(line, sizeof(line), fp);
+            }
+            sticker_count++;
+        }
+    }
+    fclose(fp);
+}
+
+void save_sticker(StickerEntry entry) {
+    FILE *fp;
+    char *save_file;
+    
+    save_file = get_user_directory();
+    /*strcat(save_file, "saved_stickers.txt");*/
+    fp = fopen(save_file, "a");
+    if (fp == NULL) return;
+    fprintf(fp, "<STICKER>\n%s\n%s\n</STICKER>\n", entry.name, entry.sticker);
+    fclose(fp);
 }
 
 char *get_sticker(char *name) {
@@ -108,12 +138,32 @@ char *get_sticker(char *name) {
     return NULL;
 }
 
+void create_sticker(char *name) {
+    char *user_sticker;
+    if (get_sticker(name) != NULL) {
+        printf("There is already a sticker with name %s!\n", name);
+        return;
+    }
+    user_sticker = read_multiline_overlay();
+    strcpy(sticker_array[sticker_count].sticker, user_sticker);
+    strcpy(sticker_array[sticker_count].name, name);
+    save_sticker(sticker_array[sticker_count]);
+    sticker_count++;
+    printf("Sticker %s created!\n", name);
+}
+
 /* Called when the user types /mycommand <args> */
 static CommandResult sticker_send(uint8_t code, const char *args, LMPContext *ctx) {
     char *args_copy;
     char *command;
     char *sticker;
     char *name;
+    int i;
+
+    if (history_loaded == 0) {
+        load_stickers();
+        history_loaded = 1;
+    }
 
     args_copy = (char *)malloc(strlen(args) + 1);
     strcpy(args_copy, args);
@@ -131,7 +181,6 @@ static CommandResult sticker_send(uint8_t code, const char *args, LMPContext *ct
             return COMMAND_ERROR;
         }
         create_sticker(name);
-        printf("Sticker %s created!", name);
     } else if (strcmp(command, "send") == 0) {
         name = strtok(NULL, " ");
         if (name == NULL) {
@@ -146,6 +195,20 @@ static CommandResult sticker_send(uint8_t code, const char *args, LMPContext *ct
             printf("%s\n", sticker);
             lmp_send(ctx->sock, code, sticker, (uint32_t)strlen(sticker));
         }
+    } else if (strcmp(command, "list") == 0) {
+        printf("Stickers saved:\n");
+        for (i = 0; i < sticker_count; i++) {
+            printf("%s\n", sticker_array[i].name);
+        }
+    } else if (strcmp(command, "preview") == 0) {
+        name = strtok(NULL, " ");
+        if (name == NULL) {
+            free(args_copy);
+            printf("No command found!\n");
+            return COMMAND_ERROR;
+        }
+        sticker = get_sticker(name);
+        printf("%s\n", sticker);
     } else {
         printf("Sticker command %s not found!", command);
     }
