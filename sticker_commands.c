@@ -159,6 +159,7 @@ static CommandResult sticker_send(uint8_t code, const char *args, LMPContext *ct
     char *sticker;
     char *name;
     int i;
+    char sticker_newline[MAX_STICKER_LEN] = "\n";
 
     if (history_loaded == 0) {
         load_stickers();
@@ -195,7 +196,9 @@ static CommandResult sticker_send(uint8_t code, const char *args, LMPContext *ct
             printf("%s\n", sticker);
             if (lmp_send(ctx->sock, code, sticker, (uint32_t)strlen(sticker)) < 0)
                 return COMMAND_ERROR;
-            lmp_history_append(ctx, ctx->my_nick, sticker);
+
+            strcat(sticker_newline, sticker);
+            lmp_history_append(ctx, ctx->my_nick, sticker_newline);
         }
     } else if (strcmp(command, "list") == 0) {
         printf("Stickers saved:\n");
@@ -220,8 +223,11 @@ static CommandResult sticker_send(uint8_t code, const char *args, LMPContext *ct
 
 /* Called when a LMP_MYCOMMAND packet is received */
 static CommandResult sticker_recv(uint8_t code, const char *buf, uint32_t len, LMPContext *ctx) {
+    char buf_newline[MAX_STICKER_LEN] = "Sent a sticker\n";
+
     printf("[%s]: Sent a sticker\n%s\n", ctx->peer_nick, buf);
-    lmp_history_append(ctx, ctx->peer_nick, buf);
+    strcat(buf_newline, buf);
+    lmp_history_append(ctx, ctx->peer_nick, buf_newline);
     return COMMAND_SUCCESS;
 }
 
