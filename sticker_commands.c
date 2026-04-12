@@ -193,7 +193,9 @@ static CommandResult sticker_send(uint8_t code, const char *args, LMPContext *ct
             printf("Sticker not found!\n");
         } else {
             printf("%s\n", sticker);
-            lmp_send(ctx->sock, code, sticker, (uint32_t)strlen(sticker));
+            if (lmp_send(ctx->sock, code, sticker, (uint32_t)strlen(sticker)) < 0)
+                return COMMAND_ERROR;
+            lmp_history_append(ctx, ctx->my_nick, sticker);
         }
     } else if (strcmp(command, "list") == 0) {
         printf("Stickers saved:\n");
@@ -219,6 +221,7 @@ static CommandResult sticker_send(uint8_t code, const char *args, LMPContext *ct
 /* Called when a LMP_MYCOMMAND packet is received */
 static CommandResult sticker_recv(uint8_t code, const char *buf, uint32_t len, LMPContext *ctx) {
     printf("[%s]: Sent a sticker\n%s\n", ctx->peer_nick, buf);
+    lmp_history_append(ctx, ctx->peer_nick, buf);
     return COMMAND_SUCCESS;
 }
 
