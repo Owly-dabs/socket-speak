@@ -51,7 +51,7 @@ char *read_multiline_overlay(void) {
     printf("\033[?47h");    /* save screen */
     printf("\033[2J");      /* clear screen */
     printf("\033[H");       /* cursor to top-left */
-    printf("Enter message (ESC to finish):\n\n");
+    printf("Enter Sticker (ESC to finish):\n\n");
     fflush(stdout);
 
     while ((c = getchar()) != ESCAPE) {
