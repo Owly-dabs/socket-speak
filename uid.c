@@ -5,7 +5,7 @@
 #include "directory_manager.h"
 #include "uid.h"
 
-static char hex_uid[9] = {0}; /* 8 characters for hex + null terminator */
+static char hex_uid[UID_LENGTH + 1] = {0}; /* 8 characters for hex + null terminator */
 
 /*
 Converts the current UID integer to an 8-character hexadecimal string.
@@ -14,7 +14,7 @@ The resulting string is stored in the static hex_uid buffer and returned.
 static char *uid_int_to_hex(int uid)
 {
     sprintf(hex_uid, "%08X", uid);
-    hex_uid[8] = '\0'; /* Ensure null termination */
+    hex_uid[UID_LENGTH] = '\0'; /* Ensure null termination */
     return hex_uid;
 }
 
@@ -55,6 +55,6 @@ char *get_uid(void)
             exit(EXIT_FAILURE);
         }
     }
-    hex_uid[8] = '\0'; /* Ensure null termination */
+    hex_uid[UID_LENGTH] = '\0'; /* Ensure null termination */
     return hex_uid;
 }
