@@ -53,3 +53,40 @@ Payload length -- 4 bytes gives up to 4GB
 ```bash
 gcc test.c directory_manager.c -ansi -pedantic && ./a.out
 ```
+
+## Features
+
+### Stickers
+ASCII-art stickers can be sent using the command `/sticker`. Sticker operations are as follows:
+<ul>
+    <li>Create</li>
+    <li>Send</li>
+    <li>List</li>
+    <li>Preview</li>
+</ul>
+Stickers previously created are saved and can be retrieved after by logging back in as the user that created them.
+
+#### Feature: Create
+Creates a sticker with the specified name.
+```
+/sticker create <sticker_name>
+```
+This command opens up an editor where user can edit the sticker. Press the `ESC` key to close the editor and save the sticker.
+
+#### Feature: Send
+Sends the sticker to the other users in the chat.
+```
+/sticker send <sticker_name>
+```
+
+#### Feature: List
+Lists all stickers created by the current user.
+```
+/sticker list
+```
+
+#### Feature: Preview
+Previews a particular sticker in user's own terminal without sending it to other users in chat.
+```
+/sticker preview <sticker_name>
+```
