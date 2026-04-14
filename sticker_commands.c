@@ -150,6 +150,7 @@ void create_sticker(char *name) {
     save_sticker(sticker_array[sticker_count]);
     sticker_count++;
     printf("Sticker %s created!\n", name);
+    free(user_sticker);
 }
 
 /* Called when the user types /mycommand <args> */
