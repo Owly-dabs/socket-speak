@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <poll.h>
 #include "group.h"
 #include "group_comms.h"
 #include "group_server_comms.h"
@@ -162,38 +163,56 @@ void group_server_UDP_reply(GroupInfo *group_info)
     close(sock);
 }
 
-void *handle_user_connection(void *arg)
+/*
+ * Add a new file descriptor to the set.
+ */
+void add_to_pfds(struct pollfd **pfds, int newfd, int *fd_count,
+                 int *fd_size)
 {
-    char response[1024];
-    int user_sock = *((int *)arg);
-    GroupMember member = {0}; /* Initialize member with zeros */
-    int i;
-    const char *nickname;
-    const char *group_name;
-
-    free(arg);
-
-    /* Add user_sock to group_connections */
-    group_connections[connection_count - 1].tcp_socket = user_sock;
-    /* Note: The UID will be set later when the user sends their UID */
-
-    /* Initial receive for UID and nickname if have */
-    recv(user_sock, (void *)&member, sizeof(member) - 1, 0);
-
-    /* Add user to group connections list */
-    for (i = 0; i < connection_count; i++)
+    /* If we don't have room, add more space in the pfds array */
+    if (*fd_count == *fd_size)
     {
-        if (group_connections[i].tcp_socket == user_sock)
-        {
-            group_connections[i].member = member;
-            break;
-        }
+        *fd_size *= 2; /* Double it */
+        *pfds = realloc(*pfds, sizeof(**pfds) * (*fd_size));
     }
 
-    /* Print to terminal */
-    printf("[Group TCP] User connected: %s (UID: %s)\n", member.nickname, member.uid);
+    (*pfds)[*fd_count].fd = newfd;
+    (*pfds)[*fd_count].events = POLLIN; /* Check ready-to-read */
+    (*pfds)[*fd_count].revents = 0;
 
-    /* Prepare welcome message */
+    (*fd_count)++;
+}
+
+/*
+ * Remove a file descriptor at a given index from the set.
+ */
+void del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
+{
+    /* Copy the one from the end over this one */
+    pfds[i] = pfds[*fd_count - 1];
+
+    (*fd_count)--;
+}
+
+/* Add member to global connections */
+void add_to_global_connections(GroupMember member, int user_sock)
+{
+    group_connections[connection_count].tcp_socket = user_sock;
+    group_connections[connection_count].member = member;
+    connection_count++;
+    return;
+}
+
+/*
+ * Send welcome message to newest connection
+ * Returns success (0) or fail (1)
+ */
+int send_welcome_message(GroupMember member, int user_sock)
+{
+    int i;
+    char response[1024];
+    const char *nickname;
+    const char *group_name;
     nickname = (member.nickname[0] != '\0') ? member.nickname : "Unknown";
     group_name = (current_group.info.group_name[0] != '\0') ? current_group.info.group_name : "Unknown Group";
 
@@ -221,15 +240,155 @@ void *handle_user_connection(void *arg)
         append_text(response, sizeof(response), ")\n");
     }
 
-    send(user_sock, response, strlen(response), 0);
-
-    /* TODO: Handle when user disconnects */
-    sleep(1000); /* Placeholder to keep the connection open for testing */
-    close(user_sock);
-    return NULL;
+    if ((send(user_sock, response, strlen(response), 0)) < 0)
+        return -1;
+    return 0;
 }
 
-int group_server_TCP_listen()
+/*
+ * Handle incoming connections.
+ */
+void handle_new_connection(int listener, int *fd_count,
+                           int *fd_size, struct pollfd **pfds)
+{
+    struct sockaddr_in remoteaddr; /* Client address */
+    socklen_t addrlen;
+    int newfd;                /* Newly accept()ed socket descriptor */
+    GroupMember member = {0}; /* Initialize member with zeros */
+
+    addrlen = sizeof remoteaddr;
+    newfd = accept(listener, (struct sockaddr *)&remoteaddr,
+                   &addrlen);
+
+    if (newfd == -1)
+    {
+        perror("accept");
+        return;
+    }
+
+    /* Continue if accept is successful */
+
+    if (connection_count >= MAX_GROUP_CONNECTIONS)
+    {
+        fprintf(stderr, "Maximum connection limit reached. Cannot add more connections.\n");
+        close(newfd);
+        return;
+    }
+
+    /* Continue if both accept is successful and
+        connection limit has not been reached */
+
+    add_to_pfds(pfds, newfd, fd_count, fd_size);
+
+    /* Receive member info (UID and nickname) */
+    recv(newfd, (void *)&member, sizeof(member), 0);
+
+    add_to_global_connections(member, newfd);
+
+    printf("[Group TCP] Accepted connection from %s\n",
+           inet_ntoa(remoteaddr.sin_addr));
+
+    if (send_welcome_message(member, newfd) != 0)
+    {
+        perror("send");
+        close(newfd);
+        return;
+    }
+}
+
+/*
+ * Handle regular client data or client hangups.
+ */
+void handle_client_data(int listener, int *fd_count,
+                        struct pollfd *pfds, int *pfd_i)
+{
+    int j;
+    char buf[256]; /* Buffer for client data */
+
+    int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
+
+    int sender_fd = pfds[*pfd_i].fd;
+
+    if (nbytes <= 0)
+    { /* Got error or connection closed by client */
+        if (nbytes == 0)
+        {
+            /* Connection closed */
+            printf("[Server] socket %d hung up\n", sender_fd);
+        }
+        else
+        {
+            perror("recv");
+        }
+
+        close(pfds[*pfd_i].fd); /* Bye! */
+
+        del_from_pfds(pfds, *pfd_i, fd_count);
+
+        /* reexamine the slot we just deleted */
+        (*pfd_i)--;
+    }
+    else
+    { /* We got some good data from a client */
+        printf("[Server] recv from fd %d: %.*s\n", sender_fd,
+               nbytes, buf);
+        /* Send to everyone! */
+        for (j = 0; j < *fd_count; j++)
+        {
+            int dest_fd = pfds[j].fd;
+
+            /* Except the listener and ourselves */
+            if (dest_fd != listener && dest_fd != sender_fd)
+            {
+                if (send(dest_fd, buf, nbytes, 0) == -1)
+                {
+                    perror("send");
+                }
+            }
+        }
+    }
+}
+
+/*
+ * Process all existing connections.
+ */
+void process_connections(int listener, int *fd_count, int *fd_size,
+                         struct pollfd **pfds)
+{
+    int i;
+    for (i = 0; i < *fd_count; i++)
+    {
+
+        /* Check if someone's ready to read */
+        if ((*pfds)[i].revents & (POLLIN | POLLHUP))
+        {
+            /* We got one!! */
+
+            if ((*pfds)[i].fd == listener)
+            {
+                /* If we're the listener, it's a new connection */
+                handle_new_connection(listener, fd_count, fd_size,
+                                      pfds);
+            }
+            else
+            {
+                /* Otherwise we're just a regular client */
+                handle_client_data(listener, fd_count, *pfds, &i);
+            }
+        }
+    }
+}
+
+void close_all_socks(struct pollfd *pfds, int *fd_count)
+{
+    while ((*fd_count) > 0)
+    {
+        close(pfds[*fd_count - 1].fd);
+        del_from_pfds(pfds, *fd_count - 1, fd_count);
+    }
+}
+
+int get_listener_socket()
 {
     int sock, reuse = 1;
     struct sockaddr_in server_addr;
@@ -243,77 +402,72 @@ int group_server_TCP_listen()
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         perror("socket failed");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     /* Socket Option Reuse Address */
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
     {
         perror("setsockopt SO_REUSEADDR failed");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     /* Bind to port */
     if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         perror("bind failed");
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
-    if (listen(sock, 5) < 0)
+    if (listen(sock, 5) < 0) /* at most 5 requests should come in at one time... */
     {
         perror("listen failed");
+        return -1;
+    }
+
+    return sock;
+}
+
+int group_server_TCP_listen()
+{
+    int sock;
+
+    int fd_size = MAX_GROUP_CONNECTIONS;
+    int fd_count = 0;
+    struct pollfd *pfds = malloc(sizeof *pfds * fd_size);
+
+    /* Create Listener Socket */
+    sock = get_listener_socket();
+    if (sock < 0)
+    {
+        fprintf(stderr, "error getting listening socket\n");
         exit(EXIT_FAILURE);
     }
 
+    /* Add the listener to set; */
+    /* Report ready to read on incoming connection */
+    pfds[0].fd = sock;
+    pfds[0].events = POLLIN;
+
+    fd_count = 1; /* For the listener */
+
     printf("[Group TCP] Awaiting connection request\n");
-    /* For each accepted connection, spawn a new thread to handle the user */
-    while (1)
+    for (;;)
     {
-        struct sockaddr_in user_addr;
-        socklen_t addr_len = sizeof(user_addr);
-        int user_sock = accept(sock, (struct sockaddr *)&user_addr, &addr_len);
-        pthread_t user_thread;
-        int *user_sock_ptr;
-        int create_status;
-        if (user_sock < 0)
+        int poll_count = poll(pfds, fd_count, -1);
+
+        if (poll_count == -1)
         {
-            perror("accept failed");
-            continue;
+            perror("poll");
+            exit(1);
         }
 
-        /* Create user thread */
-        if (connection_count < MAX_GROUP_CONNECTIONS)
-        {
-            user_sock_ptr = (int *)malloc(sizeof(int));
-            if (user_sock_ptr == NULL)
-            {
-                perror("malloc failed");
-                close(user_sock);
-                continue;
-            }
-
-            *user_sock_ptr = user_sock;
-            create_status = pthread_create(&user_thread, NULL, handle_user_connection, (void *)user_sock_ptr);
-            if (create_status != 0)
-            {
-                fprintf(stderr, "pthread_create failed: %s\n", strerror(create_status));
-                free(user_sock_ptr);
-                close(user_sock);
-                continue;
-            }
-
-            pthread_detach(user_thread);
-            connection_count++;
-        }
-        else
-        {
-            fprintf(stderr, "Maximum connection limit reached. Cannot add more connections.\n");
-            close(user_sock);
-        }
-
-        printf("[Group TCP] Accepted connection from %s\n", inet_ntoa(user_addr.sin_addr));
+        /* Run through connections looking for data to read */
+        process_connections(sock, &fd_count, &fd_size, &pfds);
     }
+
+    close_all_socks(pfds, &fd_count); /* temp function until handle_client_data is up */
     close(sock);
+    free(pfds);
     return 0;
 }
