@@ -308,9 +308,6 @@ void handle_client_data(int listener, int *fd_count,
     char buf[4096];
     uint32_t len;
 
-    /*
-    int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
-    */
     int recv_status = lmp_recv(pfds[*pfd_i].fd, &type, buf, sizeof buf, &len);
 
     int sender_fd = pfds[*pfd_i].fd;
@@ -324,7 +321,6 @@ void handle_client_data(int listener, int *fd_count,
         }
         else
         {
-            fprintf(stderr, "recv_status: %d", recv_status);
             perror("recv");
         }
 
