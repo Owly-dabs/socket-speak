@@ -11,6 +11,7 @@
 #include "group.h"
 #include "group_comms.h"
 #include "group_server_comms.h"
+#include "lmp.h"
 
 GroupConnection group_connections[MAX_GROUP_CONNECTIONS];
 Group current_group;
@@ -303,21 +304,27 @@ void handle_client_data(int listener, int *fd_count,
                         struct pollfd *pfds, int *pfd_i)
 {
     int j;
-    char buf[256]; /* Buffer for client data */
+    uint8_t type;
+    char buf[4096];
+    uint32_t len;
 
+    /*
     int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
+    */
+    int recv_status = lmp_recv(pfds[*pfd_i].fd, &type, buf, sizeof buf, &len);
 
     int sender_fd = pfds[*pfd_i].fd;
 
-    if (nbytes <= 0)
+    if (recv_status < 0)
     { /* Got error or connection closed by client */
-        if (nbytes == 0)
+        if (recv_status == -2)
         {
             /* Connection closed */
             printf("[Server] socket %d hung up\n", sender_fd);
         }
         else
         {
+            fprintf(stderr, "recv_status: %d", recv_status);
             perror("recv");
         }
 
@@ -331,7 +338,7 @@ void handle_client_data(int listener, int *fd_count,
     else
     { /* We got some good data from a client */
         printf("[Server] recv from fd %d: %.*s\n", sender_fd,
-               nbytes, buf);
+               len, buf);
         /* Send to everyone! */
         for (j = 0; j < *fd_count; j++)
         {
@@ -340,7 +347,7 @@ void handle_client_data(int listener, int *fd_count,
             /* Except the listener and ourselves */
             if (dest_fd != listener && dest_fd != sender_fd)
             {
-                if (send(dest_fd, buf, nbytes, 0) == -1)
+                if (send(dest_fd, buf, len, 0) == -1)
                 {
                     perror("send");
                 }

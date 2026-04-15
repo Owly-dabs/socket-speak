@@ -137,19 +137,29 @@ CommandResult dispatch_recv(uint8_t code, const char *buf, uint32_t len, LMPCont
     return COMMAND_UNRECOGNIZED;
 }
 
-static int read_all(int fd, void *buf, size_t n)
+static ssize_t read_all(int fd, void *buf, size_t n)
 {
     size_t total = 0;
     char *p = (char *)buf;
     ssize_t r;
+
     while (total < n)
     {
         r = read(fd, p + total, n - total);
-        if (r <= 0)
-            return -1;
+        if (r < 0)
+        {
+            if (errno == EINTR)
+                continue; /* retry on interrupt */
+            return -1;    /* real error */
+        }
+        if (r == 0)
+        {
+            /* EOF - return number of bytes actually read */
+            return (ssize_t)total;
+        }
         total += (size_t)r;
     }
-    return 0;
+    return (ssize_t)total;
 }
 
 static void print_prompt(LMPContext *ctx)
@@ -419,16 +429,21 @@ int lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *l
     lmp_header_t hdr;
     uint32_t plen;
 
-    if (read_all(fd, &hdr, sizeof(hdr)) < 0)
+    int header_bytes = read_all(fd, &hdr, sizeof(hdr));
+    if (header_bytes < 0)
         return -1;
-    if (hdr.magic[0] != LMP_MAGIC_0 || hdr.magic[1] != LMP_MAGIC_1)
+    if (header_bytes == 0)
+        return -2; /* temp code for EOF (connection closed)*/
+
+    /* Checking valid header */
+    if (hdr.magic[0] != LMP_MAGIC_0 || hdr.magic[1] != LMP_MAGIC_1 || header_bytes < sizeof hdr)
         return -1;
 
     plen = ntohl(hdr.payload_len);
     if (plen >= bufsize)
         return -1;
 
-    if (plen > 0 && read_all(fd, buf, plen) < 0)
+    if (plen > 0 && read_all(fd, buf, plen) <= 0)
         return -1;
     buf[plen] = '\0';
 
