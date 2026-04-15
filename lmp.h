@@ -49,6 +49,7 @@ int lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *l
 void chat(int sock, const char *role);
 
 void chat_loop(int sock, const char *peer_ip, const char *history_path);
+void chat_loop_user(int sock, const char *server_ip, const char *history_path);
 
 int get_peer_ip(int sockfd, char *ip_str, size_t ip_str_len);
 void connection_handler(int sock);

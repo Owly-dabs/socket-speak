@@ -12,6 +12,7 @@
 #include "group_comms.h"
 #include "group_server_comms.h"
 #include "lmp.h"
+#include "commands_registry.h"
 
 GroupConnection group_connections[MAX_GROUP_CONNECTIONS];
 Group current_group;
@@ -241,7 +242,7 @@ int send_welcome_message(GroupMember member, int user_sock)
         append_text(response, sizeof(response), ")\n");
     }
 
-    if ((send(user_sock, response, strlen(response), 0)) < 0)
+    if ((lmp_send(user_sock, LMP_MSG, response, (uint32_t)strlen(response))) < 0)
         return -1;
     return 0;
 }
@@ -321,6 +322,7 @@ void handle_client_data(int listener, int *fd_count,
         }
         else
         {
+            fprintf(stderr, "recv_status = %d\n", recv_status);
             perror("recv");
         }
 
@@ -343,7 +345,7 @@ void handle_client_data(int listener, int *fd_count,
             /* Except the listener and ourselves */
             if (dest_fd != listener && dest_fd != sender_fd)
             {
-                if (send(dest_fd, buf, len, 0) == -1)
+                if (lmp_send(dest_fd, type, buf, len) == -1)
                 {
                     perror("send");
                 }
