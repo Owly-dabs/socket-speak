@@ -137,7 +137,7 @@ CommandResult dispatch_recv(uint8_t code, const char *buf, uint32_t len, LMPCont
     return COMMAND_UNRECOGNIZED;
 }
 
-static ssize_t read_all(int fd, void *buf, size_t n)
+ssize_t read_all(int fd, void *buf, size_t n)
 {
     size_t total = 0;
     char *p = (char *)buf;

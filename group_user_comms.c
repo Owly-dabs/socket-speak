@@ -138,18 +138,53 @@ void group_chat(int sock, const char *role)
     chat_loop_user(sock, peer_ip, "");
 }
 
+int group_lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *len_out, int *sender_out)
+{
+    lmp_header_t hdr;
+    uint32_t plen;
+
+    int header_bytes = read_all(fd, &hdr, sizeof(hdr));
+    if (header_bytes < 0)
+        return -1;
+    if (header_bytes == 0)
+        return -2; /* temp code for EOF (connection closed)*/
+
+    /* Checking valid header */
+    if (hdr.magic[0] != LMP_MAGIC_0 || hdr.magic[1] != LMP_MAGIC_1 || header_bytes < sizeof hdr)
+        return -3;
+
+    plen = ntohl(hdr.payload_len);
+    if (plen >= bufsize)
+        return -4;
+
+    if (plen > 0 && read_all(fd, buf, plen) <= 0)
+        return -5;
+    buf[plen] = '\0';
+
+    *type_out = hdr.type;
+    *len_out = plen;
+    *sender_out = hdr.reserved;
+    return 0;
+}
+
 static void *receiver(void *arg)
 {
     LMPContext *ctx = (LMPContext *)arg;
     uint8_t type;
     char buf[4096];
     uint32_t len;
+    int sender_i;
 
     int status_code;
 
     while (1)
     {
-        status_code = lmp_recv(ctx->sock, &type, buf, sizeof(buf), &len);
+        status_code = group_lmp_recv(ctx->sock, &type, buf, sizeof(buf), &len, &sender_i);
+
+        /* Amend ctx for dispatch_recv function */
+        memcpy(ctx->peer_nick, &user_group.members[sender_i].nickname, sizeof(char) * NICKNAME_MAX_LEN);
+        memcpy(ctx->peer_uid, &user_group.members[sender_i].uid, sizeof(char) * (UID_LENGTH + 1));
+
         if (status_code != 0)
             break;
         printf("\r\033[K");

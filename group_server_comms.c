@@ -256,6 +256,29 @@ int send_welcome_message(GroupMember member, int user_sock)
     return 0;
 }
 
+int send_new_group_to_users(int listener, int sender_fd,
+                            int *fd_count, struct pollfd **pfds)
+{
+    int i;
+    LMPContext ctx;
+
+    for (i = 0; i < *fd_count; i++)
+    {
+        int dest_fd = (*pfds)[i].fd;
+        ctx.sock = dest_fd;
+        /* Except the listener and ourselves */
+        if (dest_fd != listener && dest_fd != sender_fd)
+        {
+            if ((grp_obj_send(LMP_GRP_OBJ, "", &ctx)) < 0)
+            {
+                perror("grp_obj_send");
+                return -1;
+            }
+        }
+    }
+
+    return 0;
+}
 /*
  * Handle incoming connections.
  */
@@ -301,7 +324,14 @@ void handle_new_connection(int listener, int *fd_count,
 
     if (send_welcome_message(member, newfd) != 0)
     {
-        perror("send");
+        perror("send_welcome_message");
+        close(newfd);
+        return;
+    }
+
+    if (send_new_group_to_users(listener, newfd, fd_count, pfds) != 0)
+    {
+        perror("send_new_group_to_users");
         close(newfd);
         return;
     }
@@ -363,7 +393,7 @@ void handle_client_data(int listener, int *fd_count,
         printf("[Server] recv from fd %d: %.*s\n", sender_fd,
                len, buf);
         /* Send to everyone! */
-        sender_connection_index = sender_fd - 1;
+        sender_connection_index = *pfd_i - 1; /* pollfd have one extra listener */
         for (j = 0; j < *fd_count; j++)
         {
             int dest_fd = pfds[j].fd;

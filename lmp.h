@@ -45,6 +45,7 @@ void register_command(uint8_t code, const char *name, SendHandler send, RecvHand
 CommandResult dispatch_send(const char *line, LMPContext *ctx);
 CommandResult dispatch_recv(uint8_t code, const char *buf, uint32_t len, LMPContext *ctx);
 
+ssize_t read_all(int fd, void *buf, size_t n);
 void print_prompt(LMPContext *ctx);
 void strip_newline(char *s);
 
