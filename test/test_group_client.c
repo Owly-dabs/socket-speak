@@ -68,7 +68,7 @@ int main()
                 return 1;
             }
 
-            chat(tcp_socket, "user");
+            group_chat(tcp_socket, "user");
 
             printf("\n--- Closing TCP Connection ---\n");
             close(tcp_socket);

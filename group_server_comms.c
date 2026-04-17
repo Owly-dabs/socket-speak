@@ -298,6 +298,22 @@ void handle_new_connection(int listener, int *fd_count,
     }
 }
 
+int group_lmp_send(int fd, uint8_t type, const char *payload, uint32_t len, int sender)
+{
+    lmp_header_t hdr;
+    hdr.magic[0] = LMP_MAGIC_0;
+    hdr.magic[1] = LMP_MAGIC_1;
+    hdr.type = type;
+    hdr.reserved = (uint8_t)sender;
+    hdr.payload_len = htonl(len);
+
+    if (send(fd, &hdr, sizeof(hdr), 0) < 0)
+        return -1;
+    if (len > 0 && send(fd, payload, len, 0) < 0)
+        return -1;
+    return 0;
+}
+
 /*
  * Handle regular client data or client hangups.
  */
@@ -338,14 +354,14 @@ void handle_client_data(int listener, int *fd_count,
         printf("[Server] recv from fd %d: %.*s\n", sender_fd,
                len, buf);
         /* Send to everyone! */
+        int sender_connection_index = sender_fd - 1;
         for (j = 0; j < *fd_count; j++)
         {
             int dest_fd = pfds[j].fd;
-
             /* Except the listener and ourselves */
             if (dest_fd != listener && dest_fd != sender_fd)
             {
-                if (lmp_send(dest_fd, type, buf, len) == -1)
+                if (group_lmp_send(dest_fd, type, buf, len, sender_connection_index) == -1)
                 {
                     perror("send");
                 }

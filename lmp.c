@@ -162,13 +162,13 @@ static ssize_t read_all(int fd, void *buf, size_t n)
     return (ssize_t)total;
 }
 
-static void print_prompt(LMPContext *ctx)
+void print_prompt(LMPContext *ctx)
 {
     printf("\r\033[K[%s]: ", ctx->my_nick);
     fflush(stdout);
 }
 
-static void strip_newline(char *s)
+void strip_newline(char *s)
 {
     size_t len = strlen(s);
     if (len > 0 && s[len - 1] == '\n')
@@ -336,10 +336,7 @@ void chat(int sock, const char *role)
     peer_ip[sizeof(peer_ip) - 1] = '\0';
 
     init_commands(); /* Initialize all commands */
-    if (strcmp(role, "user") == 0)
-        chat_loop_user(sock, peer_ip, "");
-    else
-        chat_loop(sock, peer_ip, "");
+    chat_loop(sock, peer_ip, "");
 }
 
 /* Actual chat loop implementation */
@@ -385,75 +382,6 @@ void chat_loop(int sock, const char *peer_ip, const char *history_path)
     {
         /* wait for peer UID before allowing chat */
     }
-
-    while (1)
-    {
-        print_prompt(&ctx);
-        if (!fgets(line, sizeof(line), stdin))
-            break;
-        strip_newline(line);
-
-        if (line[0] == '/')
-        {
-            switch (dispatch_send(line + 1, &ctx))
-            {
-            case COMMAND_SUCCESS:
-                break;
-            case COMMAND_ERROR:
-                printf("Error executing '%s'\n", line);
-                break;
-            case COMMAND_UNRECOGNIZED:
-                printf("Unrecognized command '%s'\n", line);
-                break;
-            }
-        }
-        else
-        {
-            if (lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line)) == 0)
-                lmp_history_append(&ctx, ctx.my_nick, line);
-        }
-    }
-
-    shutdown(sock, SHUT_WR);
-    pthread_join(recv_thread, NULL);
-}
-
-void chat_loop_user(int sock, const char *server_ip, const char *history_path)
-{
-    pthread_t recv_thread;
-    char line[1024];
-    LMPContext ctx;
-    FILE *fp;
-    ctx.sock = sock;
-
-    strncpy(ctx.my_nick, "You", sizeof(ctx.my_nick) - 1);
-    strncpy(ctx.peer_nick, "Peer", sizeof(ctx.peer_nick) - 1);
-    ctx.my_nick[sizeof(ctx.my_nick) - 1] = '\0';
-    ctx.peer_nick[sizeof(ctx.peer_nick) - 1] = '\0';
-
-    /* Load saved nickname if it exists */
-    fp = open_file_in_user_directory("nick.txt", "r");
-    if (fp != NULL)
-    {
-        fscanf(fp, "%63s", ctx.my_nick);
-        fclose(fp);
-    }
-
-    strncpy(ctx.peer_ip, server_ip ? server_ip : "unknown_peer", sizeof(ctx.peer_ip) - 1);
-    ctx.peer_ip[sizeof(ctx.peer_ip) - 1] = '\0';
-
-    strncpy(ctx.history_path, history_path ? history_path : "", sizeof(ctx.history_path) - 1);
-    ctx.history_path[sizeof(ctx.history_path) - 1] = '\0';
-
-    ctx.peer_uid[0] = '\0';
-    ctx.history_loaded = 0;
-
-    strncpy(ctx.my_uid, get_uid(), sizeof(ctx.my_uid) - 1);
-    ctx.my_uid[sizeof(ctx.my_uid) - 1] = '\0';
-
-    pthread_create(&recv_thread, NULL, receiver, &ctx);
-
-    /* send GroupMember information here */
 
     while (1)
     {
