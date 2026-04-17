@@ -14,6 +14,7 @@
 #include "commands_registry.h"
 #include "directory_manager.h"
 
+Group user_group;
 /* For User */
 /* Parameters: Pointer to store the server's address and reply message */
 /* Returns: 1 if server found, 0 otherwise */
@@ -137,6 +138,31 @@ void group_chat(int sock, const char *role)
     chat_loop_user(sock, peer_ip, "");
 }
 
+static void *receiver(void *arg)
+{
+    LMPContext *ctx = (LMPContext *)arg;
+    uint8_t type;
+    char buf[4096];
+    uint32_t len;
+
+    int status_code;
+
+    while (1)
+    {
+        status_code = lmp_recv(ctx->sock, &type, buf, sizeof(buf), &len);
+        if (status_code != 0)
+            break;
+        printf("\r\033[K");
+        if (dispatch_recv(type, buf, len, ctx) == COMMAND_UNRECOGNIZED)
+            printf("[warning]: unrecognized message type 0x%02X\n", type);
+        print_prompt(ctx);
+    }
+
+    fprintf(stderr, "lmp_recv: status %d\n", status_code);
+    printf("*** Peer disconnected.\n");
+    return NULL;
+}
+
 void chat_loop_user(int sock, const char *server_ip, const char *history_path)
 {
     pthread_t recv_thread;
@@ -204,29 +230,4 @@ void chat_loop_user(int sock, const char *server_ip, const char *history_path)
 
     shutdown(sock, SHUT_WR);
     pthread_join(recv_thread, NULL);
-}
-
-static void *receiver(void *arg)
-{
-    LMPContext *ctx = (LMPContext *)arg;
-    uint8_t type;
-    char buf[4096];
-    uint32_t len;
-
-    int status_code;
-
-    while (1)
-    {
-        status_code = lmp_recv(ctx->sock, &type, buf, sizeof(buf), &len);
-        if (status_code != 0)
-            break;
-        printf("\r\033[K");
-        if (dispatch_recv(type, buf, len, ctx) == COMMAND_UNRECOGNIZED)
-            printf("[warning]: unrecognized message type 0x%02X\n", type);
-        print_prompt(ctx);
-    }
-
-    fprintf(stderr, "lmp_recv: status %d\n", status_code);
-    printf("*** Peer disconnected.\n");
-    return NULL;
 }

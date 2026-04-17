@@ -10,6 +10,7 @@
 #include <poll.h>
 #include "group.h"
 #include "group_comms.h"
+#include "group_commands.h"
 #include "group_server_comms.h"
 #include "lmp.h"
 #include "commands_registry.h"
@@ -202,6 +203,8 @@ void add_to_global_connections(GroupMember member, int user_sock)
     group_connections[connection_count].tcp_socket = user_sock;
     group_connections[connection_count].member = member;
     connection_count++;
+    current_group.members[current_group.member_count] = member;
+    current_group.member_count++;
     return;
 }
 
@@ -215,6 +218,8 @@ int send_welcome_message(GroupMember member, int user_sock)
     char response[1024];
     const char *nickname;
     const char *group_name;
+    LMPContext ctx;
+    ctx.sock = user_sock;
     nickname = (member.nickname[0] != '\0') ? member.nickname : "Unknown";
     group_name = (current_group.info.group_name[0] != '\0') ? current_group.info.group_name : "Unknown Group";
 
@@ -243,6 +248,10 @@ int send_welcome_message(GroupMember member, int user_sock)
     }
 
     if ((lmp_send(user_sock, LMP_MSG, response, (uint32_t)strlen(response))) < 0)
+        return -1;
+
+    printf("Current number of members: %d\n", current_group.member_count);
+    if ((grp_obj_send(LMP_GRP_OBJ, "", &ctx)) < 0)
         return -1;
     return 0;
 }
@@ -325,9 +334,9 @@ void handle_client_data(int listener, int *fd_count,
     char buf[4096];
     uint32_t len;
 
-    int recv_status = lmp_recv(pfds[*pfd_i].fd, &type, buf, sizeof buf, &len);
-
+    int sender_connection_index;
     int sender_fd = pfds[*pfd_i].fd;
+    int recv_status = lmp_recv(pfds[*pfd_i].fd, &type, buf, sizeof buf, &len);
 
     if (recv_status < 0)
     { /* Got error or connection closed by client */
@@ -354,7 +363,7 @@ void handle_client_data(int listener, int *fd_count,
         printf("[Server] recv from fd %d: %.*s\n", sender_fd,
                len, buf);
         /* Send to everyone! */
-        int sender_connection_index = sender_fd - 1;
+        sender_connection_index = sender_fd - 1;
         for (j = 0; j < *fd_count; j++)
         {
             int dest_fd = pfds[j].fd;
