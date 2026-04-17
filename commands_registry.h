@@ -11,7 +11,8 @@ typedef enum
     LMP_MEOW = 0x10,
     LMP_ERROR = 0xFF,
     LMP_UID = 0x04,
-    LMP_GRP_OBJ = 0x80
+    LMP_GRP_OBJ = 0x80,
+    LMP_GRP_INFO = 0x81
 } LMPCode;
 
 void init_commands(void);

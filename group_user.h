@@ -5,5 +5,6 @@
 #include "group.h"
 
 void print_welcome_message(Group group);
+void print_group_info(Group group);
 
 #endif /* GROUP_USER_H */
