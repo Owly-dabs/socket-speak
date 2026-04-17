@@ -7,6 +7,7 @@
 #include "group.h"
 #include "group_comms.h"
 #include "group_user_comms.h"
+#include "lmp.h"
 
 /*
 Running Command:
@@ -53,8 +54,10 @@ int main()
         if ((tcp_socket = user_TCP_to_group_server(&server_addr)) > 0)
         {
             /* Receive from server */
+            /*
             char buffer[1024];
             int bytes_received;
+            */
             printf("\n--- Connected to Server via TCP ---\n");
 
             /* Send User's information, GroupMember */
@@ -65,20 +68,8 @@ int main()
                 return 1;
             }
 
-            while ((bytes_received = recv(tcp_socket, buffer, sizeof(buffer) - 1, 0)) > 0)
-            {
-                buffer[bytes_received] = '\0';
-                printf("%s\n", buffer);
-            }
+            group_chat(tcp_socket, "user");
 
-            if (bytes_received == 0)
-            {
-                printf("Connection closed by peer.\n");
-            }
-            else if (bytes_received == -1)
-            {
-                perror("recv failed");
-            }
             printf("\n--- Closing TCP Connection ---\n");
             close(tcp_socket);
         }

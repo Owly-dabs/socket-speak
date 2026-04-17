@@ -10,7 +10,8 @@ typedef enum
     LMP_ACK = 0x03,
     LMP_MEOW = 0x10,
     LMP_ERROR = 0xFF,
-    LMP_UID = 0x04
+    LMP_UID = 0x04,
+    LMP_GRP_OBJ = 0x80
 } LMPCode;
 
 void init_commands(void);

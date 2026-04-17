@@ -10,7 +10,10 @@
 #include <poll.h>
 #include "group.h"
 #include "group_comms.h"
+#include "group_commands.h"
 #include "group_server_comms.h"
+#include "lmp.h"
+#include "commands_registry.h"
 
 GroupConnection group_connections[MAX_GROUP_CONNECTIONS];
 Group current_group;
@@ -200,6 +203,8 @@ void add_to_global_connections(GroupMember member, int user_sock)
     group_connections[connection_count].tcp_socket = user_sock;
     group_connections[connection_count].member = member;
     connection_count++;
+    current_group.members[current_group.member_count] = member;
+    current_group.member_count++;
     return;
 }
 
@@ -213,6 +218,8 @@ int send_welcome_message(GroupMember member, int user_sock)
     char response[1024];
     const char *nickname;
     const char *group_name;
+    LMPContext ctx;
+    ctx.sock = user_sock;
     nickname = (member.nickname[0] != '\0') ? member.nickname : "Unknown";
     group_name = (current_group.info.group_name[0] != '\0') ? current_group.info.group_name : "Unknown Group";
 
@@ -240,11 +247,38 @@ int send_welcome_message(GroupMember member, int user_sock)
         append_text(response, sizeof(response), ")\n");
     }
 
-    if ((send(user_sock, response, strlen(response), 0)) < 0)
+    if ((lmp_send(user_sock, LMP_MSG, response, (uint32_t)strlen(response))) < 0)
+        return -1;
+
+    printf("Current number of members: %d\n", current_group.member_count);
+    if ((grp_obj_send(LMP_GRP_OBJ, "", &ctx)) < 0)
         return -1;
     return 0;
 }
 
+int send_new_group_to_users(int listener, int sender_fd,
+                            int *fd_count, struct pollfd **pfds)
+{
+    int i;
+    LMPContext ctx;
+
+    for (i = 0; i < *fd_count; i++)
+    {
+        int dest_fd = (*pfds)[i].fd;
+        ctx.sock = dest_fd;
+        /* Except the listener and ourselves */
+        if (dest_fd != listener && dest_fd != sender_fd)
+        {
+            if ((grp_obj_send(LMP_GRP_OBJ, "", &ctx)) < 0)
+            {
+                perror("grp_obj_send");
+                return -1;
+            }
+        }
+    }
+
+    return 0;
+}
 /*
  * Handle incoming connections.
  */
@@ -290,10 +324,33 @@ void handle_new_connection(int listener, int *fd_count,
 
     if (send_welcome_message(member, newfd) != 0)
     {
-        perror("send");
+        perror("send_welcome_message");
         close(newfd);
         return;
     }
+
+    if (send_new_group_to_users(listener, newfd, fd_count, pfds) != 0)
+    {
+        perror("send_new_group_to_users");
+        close(newfd);
+        return;
+    }
+}
+
+int group_lmp_send(int fd, uint8_t type, const char *payload, uint32_t len, int sender)
+{
+    lmp_header_t hdr;
+    hdr.magic[0] = LMP_MAGIC_0;
+    hdr.magic[1] = LMP_MAGIC_1;
+    hdr.type = type;
+    hdr.reserved = (uint8_t)sender;
+    hdr.payload_len = htonl(len);
+
+    if (send(fd, &hdr, sizeof(hdr), 0) < 0)
+        return -1;
+    if (len > 0 && send(fd, payload, len, 0) < 0)
+        return -1;
+    return 0;
 }
 
 /*
@@ -303,21 +360,24 @@ void handle_client_data(int listener, int *fd_count,
                         struct pollfd *pfds, int *pfd_i)
 {
     int j;
-    char buf[256]; /* Buffer for client data */
+    uint8_t type;
+    char buf[4096];
+    uint32_t len;
 
-    int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
-
+    int sender_connection_index;
     int sender_fd = pfds[*pfd_i].fd;
+    int recv_status = lmp_recv(pfds[*pfd_i].fd, &type, buf, sizeof buf, &len);
 
-    if (nbytes <= 0)
+    if (recv_status < 0)
     { /* Got error or connection closed by client */
-        if (nbytes == 0)
+        if (recv_status == -2)
         {
             /* Connection closed */
             printf("[Server] socket %d hung up\n", sender_fd);
         }
         else
         {
+            fprintf(stderr, "recv_status = %d\n", recv_status);
             perror("recv");
         }
 
@@ -331,16 +391,16 @@ void handle_client_data(int listener, int *fd_count,
     else
     { /* We got some good data from a client */
         printf("[Server] recv from fd %d: %.*s\n", sender_fd,
-               nbytes, buf);
+               len, buf);
         /* Send to everyone! */
+        sender_connection_index = *pfd_i - 1; /* pollfd have one extra listener */
         for (j = 0; j < *fd_count; j++)
         {
             int dest_fd = pfds[j].fd;
-
             /* Except the listener and ourselves */
             if (dest_fd != listener && dest_fd != sender_fd)
             {
-                if (send(dest_fd, buf, nbytes, 0) == -1)
+                if (group_lmp_send(dest_fd, type, buf, len, sender_connection_index) == -1)
                 {
                     perror("send");
                 }

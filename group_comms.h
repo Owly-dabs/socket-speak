@@ -17,4 +17,17 @@ typedef struct
     GroupInfo info;
 } GroupDiscoveryReplyMsg;
 
+typedef struct
+{
+    int sock; /* Server sock */
+    char my_nick[NICKNAME_MAX_LEN];
+    char group_ip[64]; /* LMPContext::peer_ip */
+    char my_uid[9];
+    char group_uid[9];   /* LMPContext::peer_uid */
+    char group_dir[256]; /* LMPContext::peer_dir */
+    char history_path[256];
+    int history_loaded;
+    Group group;
+} GroupContext;
+
 #endif /* GROUP_H */

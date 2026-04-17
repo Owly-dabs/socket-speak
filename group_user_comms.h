@@ -7,4 +7,7 @@
 int user_UDP_to_group_server(struct sockaddr_in *server_addr, GroupDiscoveryReplyMsg *reply);
 int user_TCP_to_group_server(struct sockaddr_in *server_addr);
 
+void group_chat(int sock, const char *role);
+void chat_loop_user(int sock, const char *server_ip, const char *history_path);
+
 #endif /* GROUP_USER_COMMS_H */

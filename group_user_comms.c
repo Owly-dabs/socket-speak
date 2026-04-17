@@ -5,11 +5,16 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 #include "uid.h"
 #include "group.h"
 #include "group_comms.h"
 #include "group_user_comms.h"
+#include "lmp.h"
+#include "commands_registry.h"
+#include "directory_manager.h"
 
+Group user_group;
 /* For User */
 /* Parameters: Pointer to store the server's address and reply message */
 /* Returns: 1 if server found, 0 otherwise */
@@ -111,4 +116,153 @@ int user_TCP_to_group_server(struct sockaddr_in *server_addr)
     }
 
     return tcp_sock;
+}
+
+/* Middleware function to handle chat functionality */
+/* int sock: socket file descriptor */
+/* const char *role: role of the user (e.g., "server", "client") */
+void group_chat(int sock, const char *role)
+{
+    char peer_ip[INET_ADDRSTRLEN];
+
+    (void)role;
+
+    if (get_peer_ip(sock, peer_ip, sizeof(peer_ip)) == 0)
+        printf("Connected from IP: %s\n", peer_ip);
+    else
+        strncpy(peer_ip, "unknown_peer", sizeof(peer_ip) - 1);
+
+    peer_ip[sizeof(peer_ip) - 1] = '\0';
+
+    init_commands(); /* Initialize all commands */
+    chat_loop_user(sock, peer_ip, "");
+}
+
+int group_lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *len_out, int *sender_out)
+{
+    lmp_header_t hdr;
+    uint32_t plen;
+
+    int header_bytes = read_all(fd, &hdr, sizeof(hdr));
+    if (header_bytes < 0)
+        return -1;
+    if (header_bytes == 0)
+        return -2; /* temp code for EOF (connection closed)*/
+
+    /* Checking valid header */
+    if (hdr.magic[0] != LMP_MAGIC_0 || hdr.magic[1] != LMP_MAGIC_1 || header_bytes < sizeof hdr)
+        return -3;
+
+    plen = ntohl(hdr.payload_len);
+    if (plen >= bufsize)
+        return -4;
+
+    if (plen > 0 && read_all(fd, buf, plen) <= 0)
+        return -5;
+    buf[plen] = '\0';
+
+    *type_out = hdr.type;
+    *len_out = plen;
+    *sender_out = hdr.reserved;
+    return 0;
+}
+
+static void *receiver(void *arg)
+{
+    LMPContext *ctx = (LMPContext *)arg;
+    uint8_t type;
+    char buf[4096];
+    uint32_t len;
+    int sender_i;
+
+    int status_code;
+
+    while (1)
+    {
+        status_code = group_lmp_recv(ctx->sock, &type, buf, sizeof(buf), &len, &sender_i);
+
+        /* Amend ctx for dispatch_recv function */
+        memcpy(ctx->peer_nick, &user_group.members[sender_i].nickname, sizeof(char) * NICKNAME_MAX_LEN);
+        memcpy(ctx->peer_uid, &user_group.members[sender_i].uid, sizeof(char) * (UID_LENGTH + 1));
+
+        if (status_code != 0)
+            break;
+        printf("\r\033[K");
+        if (dispatch_recv(type, buf, len, ctx) == COMMAND_UNRECOGNIZED)
+            printf("[warning]: unrecognized message type 0x%02X\n", type);
+        print_prompt(ctx);
+    }
+
+    fprintf(stderr, "lmp_recv: status %d\n", status_code);
+    printf("*** Peer disconnected.\n");
+    return NULL;
+}
+
+void chat_loop_user(int sock, const char *server_ip, const char *history_path)
+{
+    pthread_t recv_thread;
+    char line[1024];
+    LMPContext ctx;
+    FILE *fp;
+    ctx.sock = sock;
+
+    strncpy(ctx.my_nick, "You", sizeof(ctx.my_nick) - 1);
+    /* strncpy(ctx.peer_nick, "Peer", sizeof(ctx.peer_nick) - 1); */
+    ctx.my_nick[sizeof(ctx.my_nick) - 1] = '\0';
+    /* ctx.peer_nick[sizeof(ctx.peer_nick) - 1] = '\0'; */
+
+    /* Load saved nickname if it exists */
+    fp = open_file_in_user_directory("nick.txt", "r");
+    if (fp != NULL)
+    {
+        fscanf(fp, "%63s", ctx.my_nick);
+        fclose(fp);
+    }
+
+    strncpy(ctx.peer_ip, server_ip ? server_ip : "unknown_peer", sizeof(ctx.peer_ip) - 1);
+    ctx.peer_ip[sizeof(ctx.peer_ip) - 1] = '\0';
+
+    strncpy(ctx.history_path, history_path ? history_path : "", sizeof(ctx.history_path) - 1);
+    ctx.history_path[sizeof(ctx.history_path) - 1] = '\0';
+
+    /*ctx.peer_uid[0] = '\0';*/
+    ctx.history_loaded = 0;
+
+    strncpy(ctx.my_uid, get_uid(), sizeof(ctx.my_uid) - 1);
+    ctx.my_uid[sizeof(ctx.my_uid) - 1] = '\0';
+
+    pthread_create(&recv_thread, NULL, receiver, &ctx);
+
+    /* send GroupMember information here */
+
+    while (1)
+    {
+        print_prompt(&ctx);
+        if (!fgets(line, sizeof(line), stdin))
+            break;
+        strip_newline(line);
+
+        if (line[0] == '/')
+        {
+            switch (dispatch_send(line + 1, &ctx))
+            {
+            case COMMAND_SUCCESS:
+                break;
+            case COMMAND_ERROR:
+                printf("Error executing '%s'\n", line);
+                break;
+            case COMMAND_UNRECOGNIZED:
+                printf("Unrecognized command '%s'\n", line);
+                break;
+            }
+        }
+        else
+        {
+            if (lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line)) == 0)
+                lmp_history_append(&ctx, ctx.my_nick, line);
+        }
+    }
+
+    shutdown(sock, SHUT_WR);
+    pthread_join(recv_thread, NULL);
 }

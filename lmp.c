@@ -137,28 +137,38 @@ CommandResult dispatch_recv(uint8_t code, const char *buf, uint32_t len, LMPCont
     return COMMAND_UNRECOGNIZED;
 }
 
-static int read_all(int fd, void *buf, size_t n)
+ssize_t read_all(int fd, void *buf, size_t n)
 {
     size_t total = 0;
     char *p = (char *)buf;
     ssize_t r;
+
     while (total < n)
     {
         r = read(fd, p + total, n - total);
-        if (r <= 0)
-            return -1;
+        if (r < 0)
+        {
+            if (errno == EINTR)
+                continue; /* retry on interrupt */
+            return -1;    /* real error */
+        }
+        if (r == 0)
+        {
+            /* EOF - return number of bytes actually read */
+            return (ssize_t)total;
+        }
         total += (size_t)r;
     }
-    return 0;
+    return (ssize_t)total;
 }
 
-static void print_prompt(LMPContext *ctx)
+void print_prompt(LMPContext *ctx)
 {
     printf("\r\033[K[%s]: ", ctx->my_nick);
     fflush(stdout);
 }
 
-static void strip_newline(char *s)
+void strip_newline(char *s)
 {
     size_t len = strlen(s);
     if (len > 0 && s[len - 1] == '\n')
@@ -172,14 +182,20 @@ static void *receiver(void *arg)
     char buf[4096];
     uint32_t len;
 
-    while (lmp_recv(ctx->sock, &type, buf, sizeof(buf), &len) == 0)
+    int status_code;
+
+    while (1)
     {
+        status_code = lmp_recv(ctx->sock, &type, buf, sizeof(buf), &len);
+        if (status_code != 0)
+            break;
         printf("\r\033[K");
         if (dispatch_recv(type, buf, len, ctx) == COMMAND_UNRECOGNIZED)
             printf("[warning]: unrecognized message type 0x%02X\n", type);
         print_prompt(ctx);
     }
 
+    fprintf(stderr, "lmp_recv: status %d\n", status_code);
     printf("*** Peer disconnected.\n");
     return NULL;
 }
@@ -419,17 +435,22 @@ int lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *l
     lmp_header_t hdr;
     uint32_t plen;
 
-    if (read_all(fd, &hdr, sizeof(hdr)) < 0)
+    int header_bytes = read_all(fd, &hdr, sizeof(hdr));
+    if (header_bytes < 0)
         return -1;
-    if (hdr.magic[0] != LMP_MAGIC_0 || hdr.magic[1] != LMP_MAGIC_1)
-        return -1;
+    if (header_bytes == 0)
+        return -2; /* temp code for EOF (connection closed)*/
+
+    /* Checking valid header */
+    if (hdr.magic[0] != LMP_MAGIC_0 || hdr.magic[1] != LMP_MAGIC_1 || header_bytes < sizeof hdr)
+        return -3;
 
     plen = ntohl(hdr.payload_len);
     if (plen >= bufsize)
-        return -1;
+        return -4;
 
-    if (plen > 0 && read_all(fd, buf, plen) < 0)
-        return -1;
+    if (plen > 0 && read_all(fd, buf, plen) <= 0)
+        return -5;
     buf[plen] = '\0';
 
     *type_out = hdr.type;
