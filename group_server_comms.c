@@ -11,6 +11,7 @@
 #include "group.h"
 #include "group_comms.h"
 #include "group_commands.h"
+#include "group_server.h"
 #include "group_server_comms.h"
 #include "lmp.h"
 #include "commands_registry.h"
@@ -288,6 +289,11 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
                 perror("send_new_group_to_users");
             }
             break;
+        case LMP_MSG: /* Save message to history.txt */
+            if (save_message_to_history(current_group.members[sender_connection_index].uid, buf) != 0)
+            {
+                perror("Failed to save message to history");
+            }
         default:
             for (j = 0; j < *fd_count; j++)
             {
@@ -295,8 +301,6 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
                 /* Except the listener and ourselves */
                 if (dest_fd != listener && dest_fd != sender_fd)
                 {
-                    /* Nick */
-                    /* type == /nick, update group, send group object */
                     if (group_lmp_send(dest_fd, type, buf, len, sender_connection_index) == -1)
                     {
                         perror("send");

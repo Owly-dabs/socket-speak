@@ -4,6 +4,9 @@
 #include <unistd.h>
 #include "group.h"
 #include "group_server_comms.h"
+#include "group_server.h"
+
+extern Group current_group;
 
 static void *tcp_listen_entry(void *arg)
 {
@@ -24,6 +27,8 @@ int main()
     pthread_t tcp_thread;
     char command[128];
     int create_status;
+
+    init_group_server(group_UID);
 
     strcpy(current_group.info.group_UID, group_UID);
     current_group.info.group_UID[UID_LENGTH] = '\0'; /* Ensure null termination */
