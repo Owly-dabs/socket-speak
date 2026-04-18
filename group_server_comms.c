@@ -19,34 +19,6 @@ GroupConnection group_connections[MAX_GROUP_CONNECTIONS];
 Group current_group;
 int connection_count = 0;
 
-static void append_text(char *dest, size_t dest_size, const char *src)
-{
-    size_t dest_len;
-    size_t src_len;
-    size_t copy_len;
-
-    if (dest_size == 0)
-    {
-        return;
-    }
-
-    dest_len = strlen(dest);
-    if (dest_len >= dest_size - 1)
-    {
-        return;
-    }
-
-    src_len = strlen(src);
-    copy_len = dest_size - dest_len - 1;
-    if (src_len < copy_len)
-    {
-        copy_len = src_len;
-    }
-
-    memcpy(dest + dest_len, src, copy_len);
-    dest[dest_len + copy_len] = '\0';
-}
-
 /*
 For Server, create group_server_UDP_reply as a seperate thread
 */
@@ -208,54 +180,6 @@ void add_to_global_connections(GroupMember member, int user_sock)
     return;
 }
 
-/*
- * Send welcome message to newest connection
- * Returns success (0) or fail (1)
- */
-int send_welcome_message(GroupMember member, int user_sock)
-{
-    int i;
-    char response[1024];
-    const char *nickname;
-    const char *group_name;
-    LMPContext ctx;
-    ctx.sock = user_sock;
-    nickname = (member.nickname[0] != '\0') ? member.nickname : "Unknown";
-    group_name = (current_group.info.group_name[0] != '\0') ? current_group.info.group_name : "Unknown Group";
-
-    response[0] = '\0';
-    append_text(response, sizeof(response), "Hello ");
-    append_text(response, sizeof(response), nickname);
-    append_text(response, sizeof(response), ",\n");
-    append_text(response, sizeof(response), "Welcome to group ");
-    append_text(response, sizeof(response), group_name);
-    append_text(response, sizeof(response), "\n");
-    append_text(response, sizeof(response), "Current members:\n");
-
-    for (i = 0; i < connection_count; i++)
-    {
-        const char *list_nickname;
-        const char *list_uid;
-
-        list_nickname = (group_connections[i].member.nickname[0] != '\0') ? group_connections[i].member.nickname : "Unknown";
-        list_uid = (group_connections[i].member.uid[0] != '\0') ? group_connections[i].member.uid : "Unknown";
-
-        append_text(response, sizeof(response), "- ");
-        append_text(response, sizeof(response), list_nickname);
-        append_text(response, sizeof(response), " (UID: ");
-        append_text(response, sizeof(response), list_uid);
-        append_text(response, sizeof(response), ")\n");
-    }
-
-    if ((lmp_send(user_sock, LMP_MSG, response, (uint32_t)strlen(response))) < 0)
-        return -1;
-
-    printf("Current number of members: %d\n", current_group.member_count);
-    if ((grp_obj_send(LMP_GRP_OBJ, "", &ctx)) < 0)
-        return -1;
-    return 0;
-}
-
 int send_new_group_to_users(int listener, int sender_fd,
                             int *fd_count, struct pollfd **pfds)
 {
@@ -266,8 +190,8 @@ int send_new_group_to_users(int listener, int sender_fd,
     {
         int dest_fd = (*pfds)[i].fd;
         ctx.sock = dest_fd;
-        /* Except the listener and ourselves */
-        if (dest_fd != listener && dest_fd != sender_fd)
+        /* Except the listener */
+        if (dest_fd != listener)
         {
             if ((grp_obj_send(LMP_GRP_OBJ, "", &ctx)) < 0)
             {
@@ -321,13 +245,6 @@ void handle_new_connection(int listener, int *fd_count,
 
     printf("[Group TCP] Accepted connection from %s\n",
            inet_ntoa(remoteaddr.sin_addr));
-
-    if (send_welcome_message(member, newfd) != 0)
-    {
-        perror("send_welcome_message");
-        close(newfd);
-        return;
-    }
 
     if (send_new_group_to_users(listener, newfd, fd_count, pfds) != 0)
     {

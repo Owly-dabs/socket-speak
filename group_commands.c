@@ -3,9 +3,11 @@
 #include "lmp.h"
 #include "group.h"
 #include "commands_registry.h"
+#include "group_user.h"
 
 extern Group current_group;
 extern Group user_group;
+int user_group_is_initialized = 0;
 
 /* GRP */
 CommandResult grp_obj_send(uint8_t code, const char *args, LMPContext *ctx)
@@ -20,11 +22,30 @@ CommandResult grp_obj_send(uint8_t code, const char *args, LMPContext *ctx)
 static CommandResult grp_obj_recv(uint8_t code, const char *buf, uint32_t len, LMPContext *ctx)
 {
     user_group = *(Group *)buf;
-    printf("[Server]: New group saved. Members: %d\n", user_group.member_count);
+    if (user_group_is_initialized == 0)
+    {
+        user_group_is_initialized = 1;
+        print_welcome_message(user_group);
+    }
+    else
+    {
+        printf("[System]: Group information has been updated, type /gi to see the updated group information\n");
+    }
+    return COMMAND_SUCCESS;
+}
+
+/*
+Print group information
+Command: /gi
+*/
+static CommandResult grp_info_send(uint8_t code, const char *args, LMPContext *ctx)
+{
+    print_group_info(user_group);
     return COMMAND_SUCCESS;
 }
 
 void group_commands_init(void)
 {
     register_command(LMP_GRP_OBJ, "grpobj", grp_obj_send, grp_obj_recv);
+    register_command(LMP_GRP_INFO, "gi", grp_info_send, NULL);
 }
