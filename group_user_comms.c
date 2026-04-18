@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include "uid.h"
 #include "group.h"
+#include "group_user.h"
 #include "group_comms.h"
 #include "group_user_comms.h"
 #include "lmp.h"
@@ -134,7 +135,8 @@ void group_chat(int sock, const char *role)
 
     peer_ip[sizeof(peer_ip) - 1] = '\0';
 
-    init_commands(); /* Initialize all commands */
+    init_commands();     /* Initialize all commands */
+    user_group_MODE = 1; /* Set mode to user_group */
     chat_loop_user(sock, peer_ip, "");
 }
 
@@ -203,33 +205,39 @@ void chat_loop_user(int sock, const char *server_ip, const char *history_path)
     pthread_t recv_thread;
     char line[1024];
     LMPContext ctx;
-    FILE *fp;
+    /* FILE *fp; */
     ctx.sock = sock;
 
     strncpy(ctx.my_nick, "You", sizeof(ctx.my_nick) - 1);
-    /* strncpy(ctx.peer_nick, "Peer", sizeof(ctx.peer_nick) - 1); */
     ctx.my_nick[sizeof(ctx.my_nick) - 1] = '\0';
+    /* strncpy(ctx.peer_nick, "Peer", sizeof(ctx.peer_nick) - 1); */
     /* ctx.peer_nick[sizeof(ctx.peer_nick) - 1] = '\0'; */
 
     /* Load saved nickname if it exists */
+    /*
     fp = open_file_in_user_directory("nick.txt", "r");
     if (fp != NULL)
     {
         fscanf(fp, "%63s", ctx.my_nick);
         fclose(fp);
     }
+    */
 
+    /*
     strncpy(ctx.peer_ip, server_ip ? server_ip : "unknown_peer", sizeof(ctx.peer_ip) - 1);
     ctx.peer_ip[sizeof(ctx.peer_ip) - 1] = '\0';
-
+    */
+    /*
     strncpy(ctx.history_path, history_path ? history_path : "", sizeof(ctx.history_path) - 1);
     ctx.history_path[sizeof(ctx.history_path) - 1] = '\0';
-
-    /*ctx.peer_uid[0] = '\0';*/
-    ctx.history_loaded = 0;
+    */
+    /* ctx.peer_uid[0] = '\0'; */
+    /* ctx.history_loaded = 0; */
 
     strncpy(ctx.my_uid, get_uid(), sizeof(ctx.my_uid) - 1);
     ctx.my_uid[sizeof(ctx.my_uid) - 1] = '\0';
+
+    /* TODO: Initialize with server: Issue #42 */
 
     pthread_create(&recv_thread, NULL, receiver, &ctx);
 
@@ -241,6 +249,8 @@ void chat_loop_user(int sock, const char *server_ip, const char *history_path)
         if (!fgets(line, sizeof(line), stdin))
             break;
         strip_newline(line);
+
+        /* TODO: If line is not /, put /msg */
 
         if (line[0] == '/')
         {

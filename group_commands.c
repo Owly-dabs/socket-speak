@@ -7,7 +7,7 @@
 
 extern Group current_group;
 extern Group user_group;
-int user_group_is_initialized = 0;
+int user_group_is_initialized;
 
 /* GRP */
 CommandResult grp_obj_send(uint8_t code, const char *args, LMPContext *ctx)

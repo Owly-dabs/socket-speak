@@ -276,14 +276,16 @@ int group_lmp_send(int fd, uint8_t type, const char *payload, uint32_t len, int 
 void handle_client_data(int listener, int *fd_count,
                         struct pollfd *pfds, int *pfd_i)
 {
-    int j;
     uint8_t type;
     char buf[4096];
     uint32_t len;
 
-    int sender_connection_index;
     int sender_fd = pfds[*pfd_i].fd;
     int recv_status = lmp_recv(pfds[*pfd_i].fd, &type, buf, sizeof buf, &len);
+
+    int j;
+    LMPContext ctx;
+    int sender_connection_index;
 
     if (recv_status < 0)
     { /* Got error or connection closed by client */
@@ -306,22 +308,47 @@ void handle_client_data(int listener, int *fd_count,
         (*pfd_i)--;
     }
     else
-    { /* We got some good data from a client */
-        printf("[Server] recv from fd %d: %.*s\n", sender_fd,
-               len, buf);
-        /* Send to everyone! */
+    {
+        printf("[Server] recv from fd %d: %.*s\n", sender_fd, len, buf);
         sender_connection_index = *pfd_i - 1; /* pollfd have one extra listener */
-        for (j = 0; j < *fd_count; j++)
+        switch (type)
         {
-            int dest_fd = pfds[j].fd;
-            /* Except the listener and ourselves */
-            if (dest_fd != listener && dest_fd != sender_fd)
+        case LMP_NICK: /* Check if type == /nick */
+            printf("[Server] Update username from %s to %s\n", current_group.members[sender_connection_index].nickname, buf);
+            strncpy(current_group.members[sender_connection_index].nickname, buf, NICKNAME_MAX_LEN - 1);
+            current_group.members[sender_connection_index].nickname[NICKNAME_MAX_LEN - 1] = '\0'; /* Ensure null termination */
+
+            /* Send group object to all users */
+            for (j = 0; j < *fd_count; j++)
             {
-                if (group_lmp_send(dest_fd, type, buf, len, sender_connection_index) == -1)
+                int dest_fd = pfds[j].fd;
+                ctx.sock = dest_fd;
+                /* Except the listener */
+                if (dest_fd != listener)
                 {
-                    perror("send");
+                    if ((grp_obj_send(LMP_GRP_OBJ, "", &ctx)) < 0)
+                    {
+                        perror("grp_obj_send");
+                    }
                 }
             }
+            break;
+        default:
+            for (j = 0; j < *fd_count; j++)
+            {
+                int dest_fd = pfds[j].fd;
+                /* Except the listener and ourselves */
+                if (dest_fd != listener && dest_fd != sender_fd)
+                {
+                    /* Nick */
+                    /* type == /nick, update group, send group object */
+                    if (group_lmp_send(dest_fd, type, buf, len, sender_connection_index) == -1)
+                    {
+                        perror("send");
+                    }
+                }
+            }
+            break;
         }
     }
 }
