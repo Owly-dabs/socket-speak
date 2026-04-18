@@ -164,12 +164,12 @@ void del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
 {
     /* Copy the one from the end over this one */
     pfds[i] = pfds[*fd_count - 1];
-
+    current_group.members[i - 1] = current_group.members[*fd_count - 2]; /* Update group member info, -1 for listener offset */
+    current_group.member_count--;
     (*fd_count)--;
 }
 
-int send_new_group_to_users(int listener, int sender_fd,
-                            int *fd_count, struct pollfd **pfds)
+int send_new_group_to_users(int listener, int *fd_count, struct pollfd **pfds)
 {
     int i;
     LMPContext ctx;
@@ -261,6 +261,11 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 
         del_from_pfds(pfds, *pfd_i, fd_count);
 
+        if (send_new_group_to_users(listener, fd_count, &pfds) != 0)
+        {
+            perror("send_new_group_to_users");
+        }
+
         /* reexamine the slot we just deleted */
         (*pfd_i)--;
     }
@@ -275,7 +280,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
             strncpy(current_group.members[sender_connection_index].nickname, buf, NICKNAME_MAX_LEN - 1);
             current_group.members[sender_connection_index].nickname[NICKNAME_MAX_LEN - 1] = '\0'; /* Ensure null termination */
 
-            if (send_new_group_to_users(listener, sender_fd, fd_count, &pfds) != 0)
+            if (send_new_group_to_users(listener, fd_count, &pfds) != 0)
             {
                 perror("send_new_group_to_users");
             }
@@ -286,7 +291,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
             current_group.members[current_group.member_count] = new_member;
             current_group.member_count++;
 
-            if (send_new_group_to_users(listener, sender_fd, fd_count, &pfds) != 0)
+            if (send_new_group_to_users(listener, fd_count, &pfds) != 0)
             {
                 perror("send_new_group_to_users");
             }
