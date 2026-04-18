@@ -250,26 +250,30 @@ void chat_loop_user(int sock, const char *server_ip, const char *history_path)
             break;
         strip_newline(line);
 
-        /* TODO: If line is not /, put /msg */
-
-        if (line[0] == '/')
+        if (line[0] != '/')
         {
-            switch (dispatch_send(line + 1, &ctx))
+            size_t len = strlen(line);
+            if (len + 5 < sizeof(line))
             {
-            case COMMAND_SUCCESS:
-                break;
-            case COMMAND_ERROR:
-                printf("Error executing '%s'\n", line);
-                break;
-            case COMMAND_UNRECOGNIZED:
-                printf("Unrecognized command '%s'\n", line);
-                break;
+                memmove(line + 5, line, len + 1); /* include '\0' */
+                memcpy(line, "/msg ", 5);
+            }
+            else
+            {
+                printf("Message too long\n");
+                continue;
             }
         }
-        else
+        switch (dispatch_send(line + 1, &ctx))
         {
-            if (lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line)) == 0)
-                lmp_history_append(&ctx, ctx.my_nick, line);
+        case COMMAND_SUCCESS:
+            break;
+        case COMMAND_ERROR:
+            printf("Error executing '%s'\n", line);
+            break;
+        case COMMAND_UNRECOGNIZED:
+            printf("Unrecognized command '%s'\n", line);
+            break;
         }
     }
 
