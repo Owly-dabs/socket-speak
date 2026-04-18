@@ -15,9 +15,7 @@
 #include "lmp.h"
 #include "commands_registry.h"
 
-GroupConnection group_connections[MAX_GROUP_CONNECTIONS];
 Group current_group;
-int connection_count = 0;
 
 /*
 For Server, create group_server_UDP_reply as a seperate thread
@@ -169,23 +167,11 @@ void del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
     (*fd_count)--;
 }
 
-/* Add member to global connections */
-void add_to_global_connections(GroupMember member, int user_sock)
-{
-    group_connections[connection_count].tcp_socket = user_sock;
-    group_connections[connection_count].member = member;
-    connection_count++;
-    current_group.members[current_group.member_count] = member;
-    current_group.member_count++;
-    return;
-}
-
 int send_new_group_to_users(int listener, int sender_fd,
                             int *fd_count, struct pollfd **pfds)
 {
     int i;
     LMPContext ctx;
-
     for (i = 0; i < *fd_count; i++)
     {
         int dest_fd = (*pfds)[i].fd;
@@ -206,17 +192,11 @@ int send_new_group_to_users(int listener, int sender_fd,
 /*
  * Handle incoming connections.
  */
-void handle_new_connection(int listener, int *fd_count,
-                           int *fd_size, struct pollfd **pfds)
+void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pollfd **pfds)
 {
     struct sockaddr_in remoteaddr; /* Client address */
-    socklen_t addrlen;
-    int newfd;                /* Newly accept()ed socket descriptor */
-    GroupMember member = {0}; /* Initialize member with zeros */
-
-    addrlen = sizeof remoteaddr;
-    newfd = accept(listener, (struct sockaddr *)&remoteaddr,
-                   &addrlen);
+    socklen_t addrlen = sizeof(remoteaddr);
+    int newfd = accept(listener, (struct sockaddr *)&remoteaddr, &addrlen);
 
     if (newfd == -1)
     {
@@ -224,34 +204,9 @@ void handle_new_connection(int listener, int *fd_count,
         return;
     }
 
-    /* Continue if accept is successful */
-
-    if (connection_count >= MAX_GROUP_CONNECTIONS)
-    {
-        fprintf(stderr, "Maximum connection limit reached. Cannot add more connections.\n");
-        close(newfd);
-        return;
-    }
-
-    /* Continue if both accept is successful and
-        connection limit has not been reached */
-
     add_to_pfds(pfds, newfd, fd_count, fd_size);
-
-    /* Receive member info (UID and nickname) */
-    recv(newfd, (void *)&member, sizeof(member), 0);
-
-    add_to_global_connections(member, newfd);
-
-    printf("[Group TCP] Accepted connection from %s\n",
-           inet_ntoa(remoteaddr.sin_addr));
-
-    if (send_new_group_to_users(listener, newfd, fd_count, pfds) != 0)
-    {
-        perror("send_new_group_to_users");
-        close(newfd);
-        return;
-    }
+    printf("[Group TCP] Accepted connection from %s\n", inet_ntoa(remoteaddr.sin_addr));
+    printf("[Group TCP] Awaiting group member information...\n");
 }
 
 int group_lmp_send(int fd, uint8_t type, const char *payload, uint32_t len, int sender)
@@ -273,8 +228,7 @@ int group_lmp_send(int fd, uint8_t type, const char *payload, uint32_t len, int 
 /*
  * Handle regular client data or client hangups.
  */
-void handle_client_data(int listener, int *fd_count,
-                        struct pollfd *pfds, int *pfd_i)
+void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *pfd_i)
 {
     uint8_t type;
     char buf[4096];
@@ -284,8 +238,8 @@ void handle_client_data(int listener, int *fd_count,
     int recv_status = lmp_recv(pfds[*pfd_i].fd, &type, buf, sizeof buf, &len);
 
     int j;
-    LMPContext ctx;
     int sender_connection_index;
+    GroupMember new_member;
 
     if (recv_status < 0)
     { /* Got error or connection closed by client */
@@ -318,19 +272,20 @@ void handle_client_data(int listener, int *fd_count,
             strncpy(current_group.members[sender_connection_index].nickname, buf, NICKNAME_MAX_LEN - 1);
             current_group.members[sender_connection_index].nickname[NICKNAME_MAX_LEN - 1] = '\0'; /* Ensure null termination */
 
-            /* Send group object to all users */
-            for (j = 0; j < *fd_count; j++)
+            if (send_new_group_to_users(listener, sender_fd, fd_count, &pfds) != 0)
             {
-                int dest_fd = pfds[j].fd;
-                ctx.sock = dest_fd;
-                /* Except the listener */
-                if (dest_fd != listener)
-                {
-                    if ((grp_obj_send(LMP_GRP_OBJ, "", &ctx)) < 0)
-                    {
-                        perror("grp_obj_send");
-                    }
-                }
+                perror("send_new_group_to_users");
+            }
+            break;
+        case LMP_GRP_INIT_MEMBER: /* When user initializes their member information */
+            new_member = *(GroupMember *)buf;
+            printf("[Server] Received new member information: UID=%s, Nickname=%s\n", new_member.uid, new_member.nickname);
+            current_group.members[current_group.member_count] = new_member;
+            current_group.member_count++;
+
+            if (send_new_group_to_users(listener, sender_fd, fd_count, &pfds) != 0)
+            {
+                perror("send_new_group_to_users");
             }
             break;
         default:
@@ -356,8 +311,7 @@ void handle_client_data(int listener, int *fd_count,
 /*
  * Process all existing connections.
  */
-void process_connections(int listener, int *fd_count, int *fd_size,
-                         struct pollfd **pfds)
+void process_connections(int listener, int *fd_count, int *fd_size, struct pollfd **pfds)
 {
     int i;
     for (i = 0; i < *fd_count; i++)

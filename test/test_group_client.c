@@ -7,12 +7,11 @@
 #include "group.h"
 #include "group_comms.h"
 #include "group_user_comms.h"
+#include "group_user.h"
 #include "lmp.h"
 
-/*
-Running Command:
-gcc test_group_client.c group_user_comms.c group.c uid.c directory_manager.c -o test_group_client && ./test_group_client
- */
+extern GroupMember user_member_info; /* Global variable to hold the user's member information */
+
 int main()
 {
     struct sockaddr_in server_addr;
@@ -39,37 +38,21 @@ int main()
     if (user_UDP_to_group_server(&server_addr, &reply) == 1)
     {
         int tcp_socket;
-        GroupMember member = {0};
         printf("Server replied from sin_family: %d\n", server_addr.sin_family);
         printf("\n--- Server Discovered! ---\n");
         printf("Group ID: %s\n", reply.info.group_UID);
         printf("Group Name: %s\n", reply.info.group_name);
 
-        /* Prepare GroupMember struct */
-        strncpy(member.uid, user.uid, sizeof(member.uid) - 1);
-        member.uid[sizeof(member.uid) - 1] = '\0'; /* Ensure null termination */
-        strncpy(member.nickname, nickname, sizeof(member.nickname) - 1);
-        member.nickname[sizeof(member.nickname) - 1] = '\0'; /* Ensure null termination */
+        /* Prepare GroupMember user_member_info */
+        strncpy(user_member_info.uid, user.uid, sizeof(user_member_info.uid) - 1);
+        user_member_info.uid[sizeof(user_member_info.uid) - 1] = '\0'; /* Ensure null termination */
+        strncpy(user_member_info.nickname, nickname, sizeof(user_member_info.nickname) - 1);
+        user_member_info.nickname[sizeof(user_member_info.nickname) - 1] = '\0'; /* Ensure null termination */
 
         if ((tcp_socket = user_TCP_to_group_server(&server_addr)) > 0)
         {
-            /* Receive from server */
-            /*
-            char buffer[1024];
-            int bytes_received;
-            */
             printf("\n--- Connected to Server via TCP ---\n");
-
-            /* Send User's information, GroupMember */
-            if (send(tcp_socket, &member, sizeof(member), 0) == -1)
-            {
-                perror("send failed");
-                close(tcp_socket);
-                return 1;
-            }
-
             group_chat(tcp_socket, "user");
-
             printf("\n--- Closing TCP Connection ---\n");
             close(tcp_socket);
         }

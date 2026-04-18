@@ -4,9 +4,11 @@
 #include "group.h"
 #include "commands_registry.h"
 #include "group_user.h"
+#include "group_commands.h"
 
 extern Group current_group;
 extern Group user_group;
+GroupMember user_member_info;
 int user_group_is_initialized;
 
 /* GRP */
@@ -41,6 +43,15 @@ Command: /gi
 static CommandResult grp_info_send(uint8_t code, const char *args, LMPContext *ctx)
 {
     print_group_info(user_group);
+
+    return COMMAND_SUCCESS;
+}
+
+/* [LMP_GRP_INIT_MEMBER] Send member information to the group server */
+CommandResult user_grp_init_send(const int sock)
+{
+    if (lmp_send(sock, LMP_GRP_INIT_MEMBER, (char *)&user_member_info, sizeof(user_member_info)) < 0)
+        return COMMAND_ERROR;
     return COMMAND_SUCCESS;
 }
 
@@ -48,4 +59,5 @@ void group_commands_init(void)
 {
     register_command(LMP_GRP_OBJ, "grpobj", grp_obj_send, grp_obj_recv);
     register_command(LMP_GRP_INFO, "gi", grp_info_send, NULL);
+    register_command(LMP_GRP_INIT_MEMBER, "initmember", NULL, NULL);
 }

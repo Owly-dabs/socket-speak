@@ -14,6 +14,7 @@
 #include "lmp.h"
 #include "commands_registry.h"
 #include "directory_manager.h"
+#include "group_commands.h"
 
 Group user_group;
 /* For User */
@@ -237,7 +238,8 @@ void chat_loop_user(int sock, const char *server_ip, const char *history_path)
     strncpy(ctx.my_uid, get_uid(), sizeof(ctx.my_uid) - 1);
     ctx.my_uid[sizeof(ctx.my_uid) - 1] = '\0';
 
-    /* TODO: Initialize with server: Issue #42 */
+    /* Initialize user_member_info with server */
+    user_grp_init_send(sock);
 
     pthread_create(&recv_thread, NULL, receiver, &ctx);
 

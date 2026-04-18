@@ -12,21 +12,6 @@ static void *tcp_listen_entry(void *arg)
     return NULL;
 }
 
-static void print_connected_members(void)
-{
-    int i;
-
-    printf("Connected members (%d):\n", connection_count);
-    for (i = 0; i < connection_count; i++)
-    {
-        printf("  [%d] uid=%s nickname=%s socket=%d\n",
-               i + 1,
-               group_connections[i].member.uid,
-               group_connections[i].member.nickname,
-               group_connections[i].tcp_socket);
-    }
-}
-
 /*
 Running Command:
 gcc test_group_server.c group_server_comms.c group.c uid.c directory_manager.c -o test_group_server && ./test_group_server
@@ -63,20 +48,12 @@ int main()
 
         if (strcmp(command, "/list") == 0)
         {
-            print_connected_members();
+            /* TODO: Implement list command */
+            printf("Not implemented yet.\n");
         }
         else if (strcmp(command, "/close") == 0)
         {
-            int i;
-
-            for (i = 0; i < connection_count; i++)
-            {
-                if (group_connections[i].tcp_socket > 0)
-                {
-                    close(group_connections[i].tcp_socket);
-                }
-            }
-
+            /* TODO: Implement close command to close all connections in poll array */
             pthread_cancel(tcp_thread);
             pthread_cancel(udp_thread);
             pthread_join(tcp_thread, NULL);
