@@ -7,31 +7,14 @@
 
 extern Group current_group;
 char group_dir[512];
+char history_file_path[512];
 
 int save_message_to_history(const char *uid, const char *message)
 {
-    char history_file_path[512];
     FILE *history_file;
-    size_t group_dir_len;
-    size_t history_file_len;
-    size_t total_len;
 
-    MessageFormat message_format;
-    memset(&message_format, 0, sizeof(MessageFormat));
-
-    group_dir_len = strlen(group_dir);
-    history_file_len = strlen(GROUP_HISTORY_FILE);
-    total_len = group_dir_len + history_file_len;
-
-    if (total_len >= sizeof(history_file_path))
-    {
-        fprintf(stderr, "History file path too long\n");
-        return -1;
-    }
-
-    memcpy(history_file_path, group_dir, group_dir_len);
-    memcpy(history_file_path + group_dir_len, GROUP_HISTORY_FILE, history_file_len);
-    history_file_path[total_len] = '\0';
+    HistoryFormat message_format;
+    memset(&message_format, 0, sizeof(HistoryFormat));
 
     history_file = fopen(history_file_path, "a");
     if (!history_file)
@@ -66,10 +49,34 @@ int save_message_to_history(const char *uid, const char *message)
 
 void init_group_server(const char *group_UID)
 {
+    size_t group_dir_len;
+    size_t history_file_len;
+    size_t total_len;
+
     init_group_server_directory(group_UID, group_dir, sizeof(group_dir));
     /* add "/" to the end of group_dir */
     if (group_dir[strlen(group_dir) - 1] != '/')
     {
         strcat(group_dir, "/");
     }
+
+    group_dir_len = strlen(group_dir);
+    history_file_len = strlen(GROUP_HISTORY_FILE);
+    total_len = group_dir_len + history_file_len;
+
+    if (total_len >= sizeof(history_file_path))
+    {
+        fprintf(stderr, "History file path too long\n");
+        history_file_path[0] = '\0';
+        return;
+    }
+
+    memcpy(history_file_path, group_dir, group_dir_len);
+    memcpy(history_file_path + group_dir_len, GROUP_HISTORY_FILE, history_file_len);
+    history_file_path[total_len] = '\0';
+}
+
+char *get_history_file_path()
+{
+    return history_file_path;
 }

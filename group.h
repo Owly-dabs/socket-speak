@@ -28,10 +28,10 @@ typedef struct Group
 
 extern Group current_group;
 
-typedef struct MessageFormat
+typedef struct HistoryFormat
 {
     char uid[UID_LENGTH];
     char message[1024 - UID_LENGTH];
-} MessageFormat; /* Ensure MessageFormat is size of 1024 */
+} HistoryFormat; /* Ensure HistoryFormat is size of 1024 */
 
 #endif /* GROUP_H */

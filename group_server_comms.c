@@ -242,6 +242,8 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
     int sender_connection_index;
     GroupMember new_member;
 
+    FILE *history_file;
+
     if (recv_status < 0)
     { /* Got error or connection closed by client */
         if (recv_status == -2)
@@ -288,6 +290,23 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
             {
                 perror("send_new_group_to_users");
             }
+            break;
+        case LMP_GRP_LOAD_MSG: /* When user initiates load history message */
+            printf("[Server] Received load history request from user %s\n", current_group.members[sender_connection_index].nickname);
+
+            /* Using LMP_GRP_LOADING_MSG send each line in the history file */
+            history_file = fopen(get_history_file_path(), "r");
+            if (history_file)
+            {
+                char line[1024];
+                while (fgets(line, sizeof(line), history_file))
+                {
+                    lmp_send(sender_fd, LMP_GRP_LOADING_MSG, line, strlen(line));
+                }
+                fclose(history_file);
+            }
+
+            lmp_send(sender_fd, LMP_GRP_LOAD_MSG, "", 0); /* Trigger user FSM to STATE_IDLE */
             break;
         case LMP_MSG: /* Save message to history.txt */
             if (save_message_to_history(current_group.members[sender_connection_index].uid, buf) != 0)
