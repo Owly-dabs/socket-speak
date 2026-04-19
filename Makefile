@@ -56,7 +56,8 @@ $(BIN_DIR)/gclient: $(OBJ_DIR)/gclient.o $(COMMON_OBJS) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
 
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -I. -c $< -o $@
 
 $(OBJ_DIR):
 	mkdir -p $@
@@ -97,7 +98,8 @@ $(DEBUG_BIN_DIR)/gclient: $(DEBUG_OBJ_DIR)/gclient.o $(DEBUG_COMMON_OBJS) | $(DE
 	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
 
 $(DEBUG_OBJ_DIR)/%.o: %.c | $(DEBUG_OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -I. -c $< -o $@
 
 $(DEBUG_OBJ_DIR):
 	mkdir -p $@
