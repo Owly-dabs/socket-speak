@@ -45,7 +45,7 @@ struct in_addr get_my_ip(void)
     exit(EXIT_FAILURE);
 }
 
-void broadcast()
+void broadcast(void)
 {
     int sock;
     char my_ip[INET_ADDRSTRLEN];
@@ -87,7 +87,7 @@ void broadcast()
 }
 
 /* Return -1 if failed */
-int listen_for_connection()
+int listen_for_connection(void)
 {
     int sock, accepted_sock;
     struct sockaddr_in listen_addr, peer_addr;
