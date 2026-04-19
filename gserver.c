@@ -19,7 +19,7 @@ static void *tcp_listen_entry(void *arg)
 Running Command:
 gcc test_group_server.c group_server_comms.c group.c uid.c directory_manager.c -o test_group_server && ./test_group_server
  */
-int main()
+int main(void)
 {
     char *group_UID = "12345678";    /* Example UID (8 hex characters) */
     char *group_name = "Test Group"; /* Example group name */

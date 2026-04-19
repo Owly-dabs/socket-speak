@@ -82,7 +82,7 @@ void test_user_manager_default(void)
     printf("User UID: %s\n", user_info->uid);
 }
 
-int main()
+int main(void)
 {
     test_directory_manager_default();
     test_directory_manager();

@@ -76,7 +76,7 @@ void init_group_server(const char *group_UID)
     history_file_path[total_len] = '\0';
 }
 
-char *get_history_file_path()
+char *get_history_file_path(void)
 {
     return history_file_path;
 }

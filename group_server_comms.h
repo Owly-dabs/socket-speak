@@ -19,8 +19,8 @@ void free_users(UserNode **head);                   /* Free all users from the l
 int user_in_list(UserNode *head, const char *uid);  /* Check if user is in the link list */
 void print_user_list(UserNode *head);               /* Print all users in the link list, for debugging */
 
-pthread_t server_create_UDP_reply_thread();
+pthread_t server_create_UDP_reply_thread(void);
 void group_server_UDP_reply(GroupInfo *group_info);
-int group_server_TCP_listen();
+int group_server_TCP_listen(void);
 
 #endif /* GROUP_SERVER_COMMS_H */
