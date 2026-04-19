@@ -28,8 +28,6 @@ make
 This builds the main binaries in `bin/`:
 
 - `bin/main` - One-on-One Chat
-- `bin/server` - Username server, Wrapper of One-on-One Chat
-- `bin/client` - Username client, Wrapper of One-on-One Chat
 - `bin/gserver` - Group Chat
 - `bin/gclient` - Group Chat
 
@@ -46,7 +44,7 @@ Start either peer with the main binary:
 ./bin/main [-u <username>]
 ```
 
-The `-u` flag sets the username used for persistent storage. If omitted, the program uses its default username.
+The `-u` flag sets the program username used for persistent storage. If omitted, the program uses `default` as program username.
 
 Runtime flow:
 
@@ -55,8 +53,6 @@ Runtime flow:
 3. If a connection arrives, that instance acts as the client side inside the application.
 4. If the accept times out, the instance switches to UDP discovery mode and waits for another peer to broadcast.
 5. When a broadcast is received, it connects back over TCP to port `8081` and acts as the server side inside the application.
-
-The convenience wrappers `bin/server` and `bin/client` launch `bin/main` with `-u server` and `-u client` respectively.
 
 ### Group Chat (Group)
 

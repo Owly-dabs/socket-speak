@@ -33,21 +33,13 @@ DEBUG_TEST_BINS := $(patsubst test/%.c,$(DEBUG_BIN_DIR)/%,$(TEST_SRCS))
 
 .PHONY: all tests debug debug-tests clean
 
-all: $(BIN_DIR)/server $(BIN_DIR)/client $(BIN_DIR)/main $(GROUP_BINS) tests
+all: $(BIN_DIR)/main $(GROUP_BINS) tests
 	rm -rf $(OBJ_DIR)
 
 tests: $(TEST_BINS)
 
 $(BIN_DIR)/main: $(MAIN_OBJS) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
-
-$(BIN_DIR)/server: $(BIN_DIR)/main | $(BIN_DIR)
-	printf '%s\n' '#!/bin/sh' 'exec "$$(dirname "$$0")/main" -u server "$$@"' > $@
-	chmod +x $@
-
-$(BIN_DIR)/client: $(BIN_DIR)/main | $(BIN_DIR)
-	printf '%s\n' '#!/bin/sh' 'exec "$$(dirname "$$0")/main" -u client "$$@"' > $@
-	chmod +x $@
 
 $(BIN_DIR)/gserver: $(OBJ_DIR)/gserver.o $(COMMON_OBJS) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
@@ -74,21 +66,13 @@ $(TEST_OBJ_DIR):
 	mkdir -p $@
 
 debug: CFLAGS += -g -O0 -DDEBUG
-debug: $(DEBUG_BIN_DIR)/server $(DEBUG_BIN_DIR)/client $(DEBUG_BIN_DIR)/main $(DEBUG_GROUP_BINS) debug-tests
+debug: $(DEBUG_BIN_DIR)/main $(DEBUG_GROUP_BINS) debug-tests
 	rm -rf $(DEBUG_OBJ_DIR)
 
 debug-tests: $(DEBUG_TEST_BINS)
 
 $(DEBUG_BIN_DIR)/main: $(DEBUG_MAIN_OBJS) | $(DEBUG_BIN_DIR)
 	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
-
-$(DEBUG_BIN_DIR)/server: $(DEBUG_BIN_DIR)/main | $(DEBUG_BIN_DIR)
-	printf '%s\n' '#!/bin/sh' 'exec "$$(dirname "$$0")/main" -u server "$$@"' > $@
-	chmod +x $@
-
-$(DEBUG_BIN_DIR)/client: $(DEBUG_BIN_DIR)/main | $(DEBUG_BIN_DIR)
-	printf '%s\n' '#!/bin/sh' 'exec "$$(dirname "$$0")/main" -u client "$$@"' > $@
-	chmod +x $@
 
 $(DEBUG_BIN_DIR)/gserver: $(DEBUG_OBJ_DIR)/gserver.o $(DEBUG_COMMON_OBJS) | $(DEBUG_BIN_DIR)
 	$(CC) $(CFLAGS) $^ $(LDLIBS) -o $@
@@ -115,5 +99,5 @@ $(DEBUG_TEST_OBJ_DIR):
 	mkdir -p $@
 
 clean:
-	rm -rf $(OBJ_DIR) $(BIN_DIR)/server $(BIN_DIR)/client $(BIN_DIR)/main $(GROUP_BINS) $(TEST_BINS)
-	rm -rf $(DEBUG_OBJ_DIR) $(DEBUG_BIN_DIR)/server $(DEBUG_BIN_DIR)/client $(DEBUG_BIN_DIR)/main $(DEBUG_GROUP_BINS) $(DEBUG_TEST_BINS)
+	rm -rf $(BIN_DIR)/main $(GROUP_BINS) $(TEST_BINS)
+	rm -rf $(DEBUG_OBJ_DIR) $(DEBUG_BIN_DIR)/main $(DEBUG_GROUP_BINS) $(DEBUG_TEST_BINS)

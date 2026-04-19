@@ -6,7 +6,7 @@
         {
             "label": "Build and Run Server",
             "type": "shell",
-            "command": "make && server",
+            "command": "make && main -u server",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
@@ -16,7 +16,7 @@
         {
             "label": "Build and Run Client",
             "type": "shell",
-            "command": "make && client",
+            "command": "make && main -u client",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
