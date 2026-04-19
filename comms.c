@@ -267,8 +267,16 @@ void listen_for_broadcast(struct sockaddr_in *source_addr, char *buffer, size_t 
     len = sizeof(*source_addr);
     n = recvfrom(
         sock, (void *)buffer, buffer_size,
-        MSG_WAITALL, (struct sockaddr *)source_addr, &len);
+        0, (struct sockaddr *)source_addr, &len);
 
+    if (n < 0)
+    {
+        perror("listen_for_broadcast recvfrom");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+    if ((size_t)n >= buffer_size)
+        n = (int)buffer_size - 1;
     buffer[n] = '\0';
     close(sock);
 }

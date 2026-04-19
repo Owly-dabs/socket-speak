@@ -11,9 +11,29 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 #include "commands_registry.h"
 #include "directory_manager.h"
 #include "uid.h"
+
+/* #region agent log */
+#define LMP_AGENT_LOG_PATH ".cursor/debug-a2b374.log"
+
+void lmp_agent_log(const char *hypothesis_id, const char *location, const char *message, int data_a, int data_b)
+{
+    FILE *fp;
+    /* Ensure parent directory exists (fopen does not create it). Run from repo root. */
+    system("mkdir -p .cursor");
+    fp = fopen(LMP_AGENT_LOG_PATH, "a");
+    if (fp == NULL)
+        return;
+    fprintf(fp,
+            "{\"sessionId\":\"a2b374\",\"timestamp\":%ld,\"hypothesisId\":\"%s\",\"location\":\"%s\",\"message\":\"%s\",\"data\":{\"a\":%d,\"b\":%d},\"runId\":\"post-fix\"}\n",
+            (long)time(NULL) * 1000L, hypothesis_id, location, message, data_a, data_b);
+    fflush(fp);
+    fclose(fp);
+}
+/* #endregion */
 
 #define MAX_COMMANDS 32
 #define MAX_NAME_LEN 32
@@ -188,7 +208,12 @@ static void *receiver(void *arg)
     {
         status_code = lmp_recv(ctx->sock, &type, buf, sizeof(buf), &len);
         if (status_code != 0)
+        {
+            /* #region agent log */
+            lmp_agent_log("C", "lmp.c:receiver", "lmp_recv_nonzero", status_code, (int)type);
+            /* #endregion */
             break;
+        }
         printf("\r\033[K");
         if (dispatch_recv(type, buf, len, ctx) == COMMAND_UNRECOGNIZED)
             printf("[warning]: unrecognized message type 0x%02X\n", type);
@@ -368,6 +393,7 @@ void chat_loop(int sock, const char *peer_ip, const char *history_path)
     ctx.history_path[sizeof(ctx.history_path) - 1] = '\0';
 
     ctx.peer_uid[0] = '\0';
+    ctx.peer_uid_ready = 0;
     ctx.history_loaded = 0;
 
     strncpy(ctx.my_uid, get_uid(), sizeof(ctx.my_uid) - 1);
@@ -376,18 +402,38 @@ void chat_loop(int sock, const char *peer_ip, const char *history_path)
     pthread_create(&recv_thread, NULL, receiver, &ctx);
 
     /* send my UID once chat starts */
-    lmp_send_uid(&ctx);
-
-    while (ctx.peer_uid[0] == '\0')
+    /* #region agent log */
     {
-        /* wait for peer UID before allowing chat */
+        int uid_rc;
+        uid_rc = lmp_send_uid(&ctx);
+        lmp_agent_log("E", "lmp.c:chat_loop", "uid_send_attempt", uid_rc, 0);
+        if (uid_rc != 0)
+            fprintf(stderr, "Chat: lmp_send_uid failed (local UID missing or send error); handshake may stall.\n");
     }
+    /* #endregion */
+
+    /* #region agent log */
+    lmp_agent_log("B", "lmp.c:chat_loop", "uid_wait_enter", ctx.sock, (int)ctx.peer_uid[0]);
+    /* #endregion */
+    while (!ctx.peer_uid_ready)
+    {
+        /* Yield so the receiver thread can run (avoid tight spin on some schedulers). */
+        usleep(1000);
+    }
+    /* #region agent log */
+    lmp_agent_log("B", "lmp.c:chat_loop", "uid_wait_exit", ctx.sock, (int)ctx.peer_uid[0]);
+    /* #endregion */
 
     while (1)
     {
         print_prompt(&ctx);
         if (!fgets(line, sizeof(line), stdin))
+        {
+            /* #region agent log */
+            lmp_agent_log("D", "lmp.c:chat_loop", "fgets_eof", ctx.sock, 0);
+            /* #endregion */
             break;
+        }
         strip_newline(line);
 
         if (line[0] == '/')
@@ -406,7 +452,12 @@ void chat_loop(int sock, const char *peer_ip, const char *history_path)
         }
         else
         {
-            if (lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line)) == 0)
+            int send_rc;
+            send_rc = lmp_send(ctx.sock, LMP_MSG, line, (uint32_t)strlen(line));
+            /* #region agent log */
+            lmp_agent_log("A", "lmp.c:chat_loop", "plain_msg_send", send_rc, (int)strlen(line));
+            /* #endregion */
+            if (send_rc == 0)
                 lmp_history_append(&ctx, ctx.my_nick, line);
         }
     }
@@ -425,9 +476,19 @@ int lmp_send(int fd, uint8_t type, const char *payload, uint32_t len)
     hdr.payload_len = htonl(len);
 
     if (send(fd, &hdr, sizeof(hdr), 0) < 0)
+    {
+        /* #region agent log */
+        lmp_agent_log("A", "lmp.c:lmp_send", "send_hdr_fail", (int)type, (int)errno);
+        /* #endregion */
         return -1;
+    }
     if (len > 0 && send(fd, payload, len, 0) < 0)
+    {
+        /* #region agent log */
+        lmp_agent_log("A", "lmp.c:lmp_send", "send_payload_fail", (int)type, (int)errno);
+        /* #endregion */
         return -1;
+    }
     return 0;
 }
 int lmp_recv(int fd, uint8_t *type_out, char *buf, uint32_t bufsize, uint32_t *len_out)
