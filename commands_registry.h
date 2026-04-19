@@ -15,7 +15,8 @@ typedef enum
     LMP_GRP_INFO = 0x11,        /* User only */
     LMP_GRP_INIT_MEMBER = 0x12, /* User > Server */
     LMP_GRP_LOAD_MSG = 0x13,    /* User > Server > Client */
-    LMP_GRP_LOADING_MSG = 0x14  /* Server > User */
+    LMP_GRP_LOADING_MSG = 0x14, /* Server > User */
+    LMP_GRP_HANGMAN = 0x15      /* User <-> Server */
 } LMPCode;
 
 void init_commands(void);

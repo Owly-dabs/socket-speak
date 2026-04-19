@@ -129,6 +129,37 @@ static CommandResult user_grp_loading_msg_recv(uint8_t code, const char *buf, ui
     return COMMAND_SUCCESS;
 }
 
+/* Start hangman game */
+static CommandResult user_grp_hangman_send(uint8_t code, const char *args, LMPContext *ctx)
+{
+    /* Sanitize input, check if arg is start, join, or exit */
+    if (strcmp(args, "start") == 0 || strcmp(args, "join") == 0 || strcmp(args, "exit") == 0)
+    {
+        if (lmp_send(ctx->sock, code, args, strlen(args)) < 0)
+            return COMMAND_ERROR;
+    }
+    else
+    {
+        printf("[Hangman System] Invalid command. Please use '/hangman start', '/hangman join', or '/hangman exit'\n");
+        return COMMAND_ERROR;
+    }
+    return COMMAND_SUCCESS;
+}
+
+static CommandResult user_grp_hangman_recv(uint8_t code, const char *buf, uint32_t len, LMPContext *ctx)
+{
+    char response[1024];
+    if (len >= sizeof(response))
+    {
+        fprintf(stderr, "Received hangman message is too long, ignoring...\n");
+        return COMMAND_ERROR;
+    }
+    memcpy(response, buf, len);
+    response[len] = '\0';
+    printf("%s\n", response);
+    return COMMAND_SUCCESS;
+}
+
 void group_commands_init(void)
 {
     register_command(LMP_GRP_OBJ, "grpobj", grp_obj_send, grp_obj_recv);
@@ -136,4 +167,5 @@ void group_commands_init(void)
     register_command(LMP_GRP_INIT_MEMBER, "initmember", NULL, NULL);
     register_command(LMP_GRP_LOAD_MSG, "load", user_grp_load_msg_send, user_grp_load_msg_recv);
     register_command(LMP_GRP_LOADING_MSG, "grploadingmsg", NULL, user_grp_loading_msg_recv);
+    register_command(LMP_GRP_HANGMAN, "hangman", user_grp_hangman_send, user_grp_hangman_recv);
 }
