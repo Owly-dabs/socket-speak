@@ -1,4 +1,8 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
+#include <errno.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -86,13 +90,14 @@ void broadcast(void)
     close(sock);
 }
 
-/* Return -1 if failed */
+/* Return -1 on discovery timeout (no peer connects within LISTEN_TIMEOUT_SEC). */
 int listen_for_connection(void)
 {
-    int sock, accepted_sock;
+    int sock, accepted_sock, poll_result;
     struct sockaddr_in listen_addr, peer_addr;
     struct timeval timeout;
     socklen_t len;
+    struct pollfd pfd;
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
@@ -104,15 +109,6 @@ int listen_for_connection(void)
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &SOCKOPT, sizeof(SOCKOPT)) < 0)
     {
         perror("setsockopt SO_REUSEADDR failed");
-        exit(EXIT_FAILURE);
-    }
-
-    /* Socket Option Timeout */
-    memset(&timeout, 0, sizeof(timeout));
-    timeout.tv_sec = LISTEN_TIMEOUT_SEC;
-    if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
-    {
-        perror("setsockopt SO_RCVTIMEO failed");
         exit(EXIT_FAILURE);
     }
 
@@ -133,20 +129,55 @@ int listen_for_connection(void)
     }
 
     printf("Awaiting connection request\n");
-    len = sizeof(peer_addr);
-    accepted_sock = accept(sock, (struct sockaddr *)&peer_addr, &len);
+    pfd.fd = sock;
+    pfd.events = POLLIN;
 
-    /* The listener uses SO_RCVTIMEO only to bound discovery wait.
-       Clear it on the accepted chat socket so chat reads do not timeout. */
-    if (accepted_sock >= 0)
+    for (;;)
     {
-        memset(&timeout, 0, sizeof(timeout));
-        if (setsockopt(accepted_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+        poll_result = poll(&pfd, 1, (int)(LISTEN_TIMEOUT_SEC * 1000));
+        if (poll_result == 0)
         {
-            perror("setsockopt accepted_sock SO_RCVTIMEO reset failed");
-            close(accepted_sock);
-            accepted_sock = -1;
+            close(sock);
+            return -1;
         }
+        if (poll_result < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            perror("poll");
+            close(sock);
+            exit(EXIT_FAILURE);
+        }
+        break;
+    }
+
+    len = sizeof(peer_addr);
+    for (;;)
+    {
+        accepted_sock = accept(sock, (struct sockaddr *)&peer_addr, &len);
+        if (accepted_sock >= 0)
+        {
+            break;
+        }
+        if (errno == EINTR)
+        {
+            continue;
+        }
+        perror("accept");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    /* Clear any inherited timing options on the chat socket so chat reads do not timeout. */
+    memset(&timeout, 0, sizeof(timeout));
+    if (setsockopt(accepted_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        perror("setsockopt accepted_sock SO_RCVTIMEO reset failed");
+        close(accepted_sock);
+        close(sock);
+        return -1;
     }
 
     close(sock);
