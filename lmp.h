@@ -68,7 +68,4 @@ int lmp_save_nick(const char *nick);
 int lmp_save_peer_nick(const char *peer_uid, const char *nick);
 int lmp_load_peer_nick(const char *peer_uid, char *nick, size_t nick_size);
 
-/* Debug NDJSON (session a2b374); do not use for secrets */
-void lmp_agent_log(const char *hypothesis_id, const char *location, const char *message, int data_a, int data_b);
-
 #endif /* LMP_H */
