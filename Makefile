@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -ansi -pedantic -Wall -Werror
+CFLAGS := -ansi -pedantic -Wall -Werror -Wno-newline-eof
 LDLIBS := -lpthread
 
 .SILENT:
