@@ -383,7 +383,7 @@ void chat_loop(int sock, const char *peer_ip, const char *history_path)
     while (!ctx.peer_uid_ready)
     {
         /* Yield so the receiver thread can run (avoid tight spin on some schedulers). */
-        usleep(1000);
+        sleep(1);
     }
 
     while (1)
