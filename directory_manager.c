@@ -107,3 +107,29 @@ FILE *open_file_in_user_directory(const char *filename, const char *mode)
     file = fopen(filepath, mode);
     return file;
 }
+
+void init_group_server_directory(const char *uid, char *group_dir, size_t group_dir_size)
+{
+    char root_directory[512];
+    size_t root_len;
+    size_t uid_len;
+    size_t prefix_len;
+
+    get_root_directory(root_directory, sizeof(root_directory));
+
+    root_len = strlen(root_directory);
+    uid_len = strlen(uid);
+    prefix_len = 8; /* "/server/" */
+
+    if (root_len + prefix_len + uid_len + 1 > group_dir_size)
+    {
+        fprintf(stderr, "group directory path too long\n");
+        exit(EXIT_FAILURE);
+    }
+
+    memcpy(group_dir, root_directory, root_len);
+    memcpy(group_dir + root_len, "/server/", prefix_len);
+    memcpy(group_dir + root_len + prefix_len, uid, uid_len + 1);
+
+    make_directory(group_dir);
+}
