@@ -72,10 +72,10 @@ void test_user_manager(void)
 
 void test_user_manager_default(void)
 {
+    UserInformation *user_info;
     set_program_username("default");
     flush_user_information();
 
-    UserInformation *user_info;
     printf("Testing user information initialization...\n");
 
     user_info = init_user_information();
