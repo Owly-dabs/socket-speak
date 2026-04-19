@@ -2,6 +2,9 @@
 #include <string.h>
 #include "lmp.h"
 #include "commands_registry.h"
+#include "group_user.h"
+
+int user_group_MODE;
 
 /* MSG */
 static CommandResult msg_send(uint8_t code, const char *args, LMPContext *ctx)
@@ -22,9 +25,12 @@ static CommandResult msg_recv(uint8_t code, const char *buf, uint32_t len, LMPCo
 /* NICK */
 static CommandResult nick_send(uint8_t code, const char *args, LMPContext *ctx)
 {
-    strncpy(ctx->my_nick, args, sizeof(ctx->my_nick) - 1);
-    ctx->my_nick[sizeof(ctx->my_nick) - 1] = '\0';
-    lmp_save_nick(ctx->my_nick); /* Save nickname to disk so it persists across sessions */
+    if (user_group_MODE == 0) /* One to one connection */
+    {
+        strncpy(ctx->my_nick, args, sizeof(ctx->my_nick) - 1);
+        ctx->my_nick[sizeof(ctx->my_nick) - 1] = '\0';
+        lmp_save_nick(ctx->my_nick); /* Save nickname to disk so it persists across sessions */
+    }
     if (lmp_send(ctx->sock, code, args, (uint32_t)strlen(args)) < 0)
         return COMMAND_ERROR;
     return COMMAND_SUCCESS;

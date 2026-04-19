@@ -7,6 +7,8 @@ Dedicated for functions which only user (client) side needs, such as printing we
 #include "group.h"
 #include "group_user.h"
 
+State_t loading_message_state = STATE_IDLE;
+
 /* used in /gi (group info) and welcome message */
 void print_group_info(Group group)
 {

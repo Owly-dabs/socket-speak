@@ -4,27 +4,15 @@
 #include <unistd.h>
 #include "group.h"
 #include "group_server_comms.h"
+#include "group_server.h"
+
+extern Group current_group;
 
 static void *tcp_listen_entry(void *arg)
 {
     (void)arg;
     group_server_TCP_listen();
     return NULL;
-}
-
-static void print_connected_members(void)
-{
-    int i;
-
-    printf("Connected members (%d):\n", connection_count);
-    for (i = 0; i < connection_count; i++)
-    {
-        printf("  [%d] uid=%s nickname=%s socket=%d\n",
-               i + 1,
-               group_connections[i].member.uid,
-               group_connections[i].member.nickname,
-               group_connections[i].tcp_socket);
-    }
 }
 
 /*
@@ -39,6 +27,8 @@ int main()
     pthread_t tcp_thread;
     char command[128];
     int create_status;
+
+    init_group_server(group_UID);
 
     strcpy(current_group.info.group_UID, group_UID);
     current_group.info.group_UID[UID_LENGTH] = '\0'; /* Ensure null termination */
@@ -63,20 +53,12 @@ int main()
 
         if (strcmp(command, "/list") == 0)
         {
-            print_connected_members();
+            /* TODO: Implement list command */
+            printf("Not implemented yet.\n");
         }
         else if (strcmp(command, "/close") == 0)
         {
-            int i;
-
-            for (i = 0; i < connection_count; i++)
-            {
-                if (group_connections[i].tcp_socket > 0)
-                {
-                    close(group_connections[i].tcp_socket);
-                }
-            }
-
+            /* TODO: Implement close command to close all connections in poll array */
             pthread_cancel(tcp_thread);
             pthread_cancel(udp_thread);
             pthread_join(tcp_thread, NULL);
