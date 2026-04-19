@@ -15,8 +15,12 @@
 #include "group_server_comms.h"
 #include "lmp.h"
 #include "commands_registry.h"
+#include "hangman.h"
 
 Group current_group;
+extern HANGMAN_FSM hangman_fsm;
+char hangman_old_response[2048] = {0};
+UserNode *hangman_users_list = NULL;
 
 /*
 For Server, create group_server_UDP_reply as a seperate thread
@@ -313,7 +317,120 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 
             lmp_send(sender_fd, LMP_GRP_LOAD_MSG, "", 0); /* Trigger user FSM to STATE_IDLE */
             break;
+
+        case LMP_GRP_HANGMAN:
+            /* Usage /hangman start, /hangman join, /hangman exit */
+            printf("[Server] Received /hangman '%s' from user %s\n", buf, current_group.members[sender_connection_index].nickname);
+            if (strcmp(buf, "start") == 0)
+            {
+                if (hangman_fsm.state == HANGMAN_INITIAL)
+                {
+                    int i;
+                    char broadcast_msg[1024];
+                    sprintf(hangman_old_response, "==================================================\n[Hangman System] %s started a new Hangman game\n%s", current_group.members[sender_connection_index].nickname, process_hangman_state(&hangman_fsm, '\0'));
+                    lmp_send(sender_fd, LMP_GRP_HANGMAN, hangman_old_response, strlen(hangman_old_response));
+                    printf("[Server] Starting new Hangman game with word: %s\n", hangman_fsm.hangman_word);
+                    add_user(&hangman_users_list, current_group.members[sender_connection_index].uid);
+                    print_user_list(hangman_users_list);
+
+                    /* Send everyone except the sender [System] <nickname> started a new Hangman game, use '/hangman join' to join the game */
+                    sprintf(broadcast_msg, "[System] %s started a new Hangman game, use '/hangman join' to join the game", current_group.members[sender_connection_index].nickname);
+
+                    for (i = 0; i < *fd_count; i++)
+                    {
+                        int dest_fd = pfds[i].fd;
+                        /* Except the listener and the sender */
+                        if (dest_fd != listener && dest_fd != sender_fd)
+                        {
+                            lmp_send(dest_fd, LMP_GRP_HANGMAN, broadcast_msg, strlen(broadcast_msg));
+                        }
+                    }
+                }
+                else
+                {
+                    /* Send message to user indicating game is already in progress */
+                    char *in_progress_msg = "[Hangman System] A Hangman game is already in progress. Please join the current game via '/hangman join' or wait for it to finish.";
+                    printf("[Server] Received Hangman start request but game is already in progress\n");
+                    lmp_send(sender_fd, LMP_GRP_HANGMAN, in_progress_msg, strlen(in_progress_msg));
+                }
+            }
+            else if (strcmp(buf, "exit") == 0)
+            {
+                /* printf("[Server] Received Hangman exit request but no game is in progress\n"); */
+                char *exit_msg = "[Hangman System] You have exited the Hangman game.";
+                remove_user(&hangman_users_list, current_group.members[sender_connection_index].uid);
+                lmp_send(sender_fd, LMP_GRP_HANGMAN, exit_msg, strlen(exit_msg));
+            }
+            else if (strcmp(buf, "join") == 0)
+            {
+                if (hangman_fsm.state != HANGMAN_INITIAL)
+                {
+                    add_user(&hangman_users_list, current_group.members[sender_connection_index].uid);
+                    lmp_send(sender_fd, LMP_GRP_HANGMAN, hangman_old_response, strlen(hangman_old_response));
+                    printf("[Server] User %s joined the Hangman game\n", current_group.members[sender_connection_index].nickname);
+                }
+                else
+                {
+                    printf("[Server] Received Hangman join request but no game is in progress\n");
+                }
+            }
+            break;
         case LMP_MSG: /* Save message to history.txt */
+            printf("UID of sender: %s\n", current_group.members[sender_connection_index].uid);
+            printf("Handman state: %d\n", hangman_fsm.state);
+            print_user_list(hangman_users_list);
+            if (hangman_fsm.state != HANGMAN_INITIAL && (user_in_list(hangman_users_list, current_group.members[sender_connection_index].uid) == 1))
+            {
+                char guess = buf[0];
+                UserNode *current = hangman_users_list;
+
+                /* The game is still broadcasting, reply send letter again later. */
+                if (hangman_fsm.state == HANGMAN_UPDATE)
+                {
+                    char *busy_msg = "[Hangman System] The game is currently processing the previous guess, please wait a moment before sending another guess.";
+                    lmp_send(sender_fd, LMP_GRP_HANGMAN, busy_msg, strlen(busy_msg));
+                    break;
+                }
+
+                if (strlen(buf) != 1)
+                {
+                    char *invalid_msg = "[Hangman System] Invalid input for Hangman. Please guess a single letter. (Type </hangman exit> to leave the game)";
+                    lmp_send(sender_fd, LMP_GRP_HANGMAN, invalid_msg, strlen(invalid_msg));
+                    break; /* Not a single letter guess, treat it as a normal message */
+                }
+
+                printf("[Server] User %s is in the Hangman game, processing their guess '%s'\n", current_group.members[sender_connection_index].nickname, buf);
+                sprintf(hangman_old_response, "==================================================\n[Hangman System] %s guessed '%c'\n%s", current_group.members[sender_connection_index].nickname, guess, process_hangman_state(&hangman_fsm, guess));
+
+                while (current != NULL)
+                {
+                    /* Find the corresponding user's file descriptor and send the response */
+                    /* Implementation for sending response to each user in the list */
+                    /* Use current_group.members index, then use pfds[index + 1].fd to get file descriptor */
+                    int user_index = -1;
+                    for (j = 0; j < current_group.member_count; j++)
+                    {
+                        if (strcmp(current_group.members[j].uid, current->uid) == 0)
+                        {
+                            user_index = j;
+                            break;
+                        }
+                    }
+                    if (user_index != -1)
+                    {
+                        int user_fd = pfds[user_index + 1].fd; /* +1 for listener offset */
+                        lmp_send(user_fd, LMP_GRP_HANGMAN, hangman_old_response, strlen(hangman_old_response));
+                    }
+                    current = current->next;
+                }
+                hangman_finish_broadcast(&hangman_fsm);
+
+                if (hangman_fsm.state == HANGMAN_INITIAL)
+                {
+                    free_users(&hangman_users_list);
+                }
+                break;
+            }
             if (save_message_to_history(current_group.members[sender_connection_index].uid, buf) != 0)
             {
                 perror("Failed to save message to history");
@@ -456,4 +573,84 @@ int group_server_TCP_listen()
     close(sock);
     free(pfds);
     return 0;
+}
+
+/* Add user to the link list */
+void add_user(UserNode **head, const char *uid)
+{
+    UserNode *new_node = (UserNode *)malloc(sizeof(UserNode));
+    if (new_node == NULL)
+    {
+        perror("Failed to allocate memory for new user");
+        return;
+    }
+    strncpy(new_node->uid, uid, UID_LENGTH);
+    new_node->uid[UID_LENGTH] = '\0'; /* Ensure null termination */
+    new_node->next = *head;
+    *head = new_node;
+}
+
+/* Remove user from the link list */
+void remove_user(UserNode **head, const char *uid)
+{
+    UserNode *current = *head;
+    UserNode *previous = NULL;
+
+    while (current != NULL)
+    {
+        if (strcmp(current->uid, uid) == 0)
+        {
+            if (previous == NULL)
+            {
+                *head = current->next;
+            }
+            else
+            {
+                previous->next = current->next;
+            }
+            free(current);
+            return;
+        }
+        previous = current;
+        current = current->next;
+    }
+}
+
+/* Free all users from the link list */
+void free_users(UserNode **head)
+{
+    UserNode *current = *head;
+    while (current != NULL)
+    {
+        UserNode *temp = current;
+        current = current->next;
+        free(temp);
+    }
+    *head = NULL;
+}
+
+/* Check if user is in the link list. Return 1 if found, 0 otherwise */
+int user_in_list(UserNode *head, const char *uid)
+{
+    UserNode *current = head;
+    while (current != NULL)
+    {
+        if (strcmp(current->uid, uid) == 0)
+        {
+            return 1; /* User found in the list */
+        }
+        current = current->next;
+    }
+    return 0; /* User not found in the list */
+}
+
+void print_user_list(UserNode *head)
+{
+    UserNode *current = head;
+    printf("Current users in the list:\n");
+    while (current != NULL)
+    {
+        printf("UID: %s\n", current->uid);
+        current = current->next;
+    }
 }
