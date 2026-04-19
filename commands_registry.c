@@ -3,6 +3,7 @@
 /* Add #include directives for any other required headers */
 #include "meow_commands.h"
 #include "sticker_commands.h"
+#include "group_commands.h"
 
 void init_commands(void)
 {
@@ -11,4 +12,5 @@ void init_commands(void)
     /* Append any additional command initializations here */
     meow_commands_init();
     sticker_commands_init();
+    group_commands_init();
 }
