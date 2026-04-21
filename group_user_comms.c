@@ -78,7 +78,7 @@ int user_UDP_to_group_server(struct sockaddr_in *server_addr, GroupDiscoveryRepl
     memset(server_addr, 0, sizeof(*server_addr));
     memset(reply, 0, sizeof(*reply));
 
-    recv_len = recvfrom(sock, reply, sizeof(*reply), 0, (struct sockaddr *)&server_addr, &addr_len);
+    recv_len = recvfrom(sock, reply, sizeof(*reply), 0, (struct sockaddr *)server_addr, &addr_len);
     close(sock);
 
     return recv_len == sizeof(*reply) ? 1 : 0;
