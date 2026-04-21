@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "hangman.h"
 
-int main()
+int main(void)
 {
     HANGMAN_FSM hangman_fsm;
     char guess;

@@ -90,7 +90,7 @@ char *read_multiline_overlay(void) {
     return buffer;  /* caller must free() */
 }
 
-void load_stickers() {
+void load_stickers(void) {
     FILE *fp;
     char *save_file;
     char line[512];

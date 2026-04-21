@@ -368,6 +368,7 @@ void chat_loop(int sock, const char *peer_ip, const char *history_path)
     ctx.history_path[sizeof(ctx.history_path) - 1] = '\0';
 
     ctx.peer_uid[0] = '\0';
+    ctx.peer_uid_ready = 0;
     ctx.history_loaded = 0;
 
     strncpy(ctx.my_uid, get_uid(), sizeof(ctx.my_uid) - 1);
@@ -376,11 +377,13 @@ void chat_loop(int sock, const char *peer_ip, const char *history_path)
     pthread_create(&recv_thread, NULL, receiver, &ctx);
 
     /* send my UID once chat starts */
-    lmp_send_uid(&ctx);
+    if (lmp_send_uid(&ctx) != 0)
+        fprintf(stderr, "Chat: lmp_send_uid failed (local UID missing or send error); handshake may stall.\n");
 
-    while (ctx.peer_uid[0] == '\0')
+    while (!ctx.peer_uid_ready)
     {
-        /* wait for peer UID before allowing chat */
+        /* Yield so the receiver thread can run (avoid tight spin on some schedulers). */
+        sleep(1);
     }
 
     while (1)

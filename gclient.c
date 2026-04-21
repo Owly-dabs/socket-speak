@@ -12,7 +12,7 @@
 
 extern GroupMember user_member_info; /* Global variable to hold the user's member information */
 
-int main()
+int main(void)
 {
     struct sockaddr_in server_addr;
     GroupDiscoveryReplyMsg reply;

@@ -88,6 +88,7 @@ static CommandResult uid_recv(uint8_t code, const char *buf, uint32_t len, LMPCo
         lmp_history_load(ctx);
         ctx->history_loaded = 1;
     }
+    ctx->peer_uid_ready = 1;
     return COMMAND_SUCCESS;
 }
 

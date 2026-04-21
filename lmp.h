@@ -33,6 +33,7 @@ typedef struct
     char peer_ip[64];
     char my_uid[9];
     char peer_uid[9];
+    volatile int peer_uid_ready; /* set by receiver when peer_uid handshake is done */
     char peer_dir[256];
     char history_path[256];
     int history_loaded;

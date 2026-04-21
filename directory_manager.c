@@ -27,7 +27,7 @@ static void get_root_directory(char *buffer, size_t buffer_size)
         {
             strncat(buffer, home, buffer_size - 1);
             strncat(buffer, "/", buffer_size - strlen(buffer) - 1);
-            strncat(buffer, ROOT_DIRECTORY + 2, buffer_size - strlen(buffer) - 1);
+            strncat(buffer, &ROOT_DIRECTORY[2], buffer_size - strlen(buffer) - 1);
             return;
         }
     }

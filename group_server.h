@@ -5,6 +5,6 @@
 
 int save_message_to_history(const char *uid, const char *message);
 void init_group_server(const char *group_UID);
-char *get_history_file_path();
+char *get_history_file_path(void);
 
 #endif /* GROUP_SERVER_H */

@@ -34,7 +34,7 @@ static void *group_server_UDP_reply_entry(void *arg)
     return NULL;
 }
 
-pthread_t server_create_UDP_reply_thread()
+pthread_t server_create_UDP_reply_thread(void)
 {
     /* Create a thread that runs group_server_UDP_reply with the provided group_info */
     /* This thread will handle incoming UDP discovery requests and reply with the group information */
@@ -491,7 +491,7 @@ void close_all_socks(struct pollfd *pfds, int *fd_count)
     }
 }
 
-int get_listener_socket()
+int get_listener_socket(void)
 {
     int sock, reuse = 1;
     struct sockaddr_in server_addr;
@@ -531,7 +531,7 @@ int get_listener_socket()
     return sock;
 }
 
-int group_server_TCP_listen()
+int group_server_TCP_listen(void)
 {
     int sock;
 

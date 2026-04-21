@@ -2,10 +2,26 @@
 #include <time.h>
 #include <limits.h>
 #include <string.h>
+#include <ctype.h>
 #include "directory_manager.h"
 #include "uid.h"
 
 static char hex_uid[UID_LENGTH + 1] = {0}; /* 8 characters for hex + null terminator */
+
+static int uid_string_valid(const char *s)
+{
+    int i;
+    if (s == NULL)
+        return 0;
+    for (i = 0; i < UID_LENGTH; i++)
+    {
+        if (!isxdigit((unsigned char)s[i]))
+            return 0;
+    }
+    if (s[UID_LENGTH] != '\0')
+        return 0;
+    return 1;
+}
 
 /*
 Converts the current UID integer to an 8-character hexadecimal string.
@@ -29,23 +45,26 @@ int generate_uid(void)
 
 char *get_uid(void)
 {
-    /* Read uid.txt*/
-    FILE *uid_file = open_file_in_user_directory("uid.txt", "r");
+    FILE *uid_file;
+    int need_generate = 1;
 
+    memset(hex_uid, 0, sizeof(hex_uid));
+    uid_file = open_file_in_user_directory("uid.txt", "r");
     if (uid_file != NULL)
     {
-        fscanf(uid_file, "%8s", hex_uid);
+        if (fscanf(uid_file, "%8s", hex_uid) == 1 && uid_string_valid(hex_uid))
+            need_generate = 0;
         fclose(uid_file);
     }
-    else
+
+    if (need_generate)
     {
         int UID = generate_uid();
-        /* Write the new UID to uid.txt */
         uid_file = open_file_in_user_directory("uid.txt", "w");
         if (uid_file != NULL)
         {
-            char *hex_string = uid_int_to_hex(UID);
-            strcpy(hex_uid, hex_string); /* Store the hex string in the static buffer */
+            /* uid_int_to_hex writes into hex_uid; do not strcpy(src,dst) with overlapping buffers */
+            (void)uid_int_to_hex(UID);
             fprintf(uid_file, "%s", hex_uid);
             fclose(uid_file);
         }

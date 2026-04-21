@@ -6,7 +6,7 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 
-int main()
+int main(void)
 {
     struct ifaddrs *ifaddr, *ifa;
     char ip[INET_ADDRSTRLEN];

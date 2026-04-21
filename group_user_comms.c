@@ -78,7 +78,7 @@ int user_UDP_to_group_server(struct sockaddr_in *server_addr, GroupDiscoveryRepl
     memset(server_addr, 0, sizeof(*server_addr));
     memset(reply, 0, sizeof(*reply));
 
-    recv_len = recvfrom(sock, reply, sizeof(*reply), 0, (struct sockaddr *)&server_addr, &addr_len);
+    recv_len = recvfrom(sock, reply, sizeof(*reply), 0, (struct sockaddr *)server_addr, &addr_len);
     close(sock);
 
     return recv_len == sizeof(*reply) ? 1 : 0;
@@ -237,6 +237,7 @@ void chat_loop_user(int sock, const char *server_ip, const char *history_path)
 
     strncpy(ctx.my_uid, get_uid(), sizeof(ctx.my_uid) - 1);
     ctx.my_uid[sizeof(ctx.my_uid) - 1] = '\0';
+    ctx.peer_uid_ready = 0;
 
     /* Initialize user_member_info with server */
     user_grp_init_send(sock);
